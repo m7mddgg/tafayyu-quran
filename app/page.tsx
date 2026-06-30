@@ -330,6 +330,12 @@ export default function Home() {
                   key={currentSurahNumber}
                   preload="auto"
                   className="w-full mt-2"
+                  onPlay={(e) => {
+                    const audios = document.getElementsByTagName('audio');
+                    for (let i = 0; i < audios.length; i++) {
+                      if (audios[i] !== e.target) audios[i].pause();
+                    }
+                  }}
                   src={`https://server11.mp3quran.net/yasser/${String(currentSurahNumber).padStart(3, '0')}.mp3`}
                 >
                   متصفحك لا يدعم تشغيل الصوت.
@@ -900,6 +906,12 @@ export default function Home() {
                   controls
                   preload="none"
                   className="w-full mt-2"
+                  onPlay={(e) => {
+                    const audios = document.getElementsByTagName('audio');
+                    for (let i = 0; i < audios.length; i++) {
+                      if (audios[i] !== e.target) audios[i].pause();
+                    }
+                  }}
                   src={`https://server11.mp3quran.net/yasser/${String(surah.number).padStart(3, '0')}.mp3`}
                 >
                   متصفحك لا يدعم تشغيل الصوت.
