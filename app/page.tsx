@@ -76,6 +76,7 @@ export default function Home() {
   const [hifzExpectedWordIndex, setHifzExpectedWordIndex] = useState<number>(0);
   const [isHifzListening, setIsHifzListening] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
+  const isIntentionalStopRef = useRef<boolean>(false);
 
   // Prayer Times State
   const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
@@ -281,7 +282,7 @@ export default function Home() {
                     ? 'text-emerald-600 dark:text-emerald-400 opacity-100 drop-shadow-sm' 
                     : wordObj.isHint 
                       ? 'text-red-500 dark:text-red-400 opacity-100'
-                      : 'text-gray-300 dark:text-gray-700 select-none blur-[2px] transition hover:blur-none'
+                      : 'hidden'
                 }`}>
                    {wordObj.original}
                 </span>
@@ -639,6 +640,7 @@ export default function Home() {
   };
 
   const stopHifzListening = () => {
+    isIntentionalStopRef.current = true;
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e) {}
     }
@@ -660,8 +662,16 @@ export default function Home() {
       recognition.lang = 'ar-SA';
       
       recognition.onstart = () => setIsHifzListening(true);
-      recognition.onend = () => setIsHifzListening(false);
-      recognition.onerror = (e: any) => console.error("Speech Rec Error:", e);
+      recognition.onend = () => {
+        if (!isIntentionalStopRef.current) {
+           try { recognition.start(); } catch(e) {}
+        } else {
+           setIsHifzListening(false);
+        }
+      };
+      recognition.onerror = (e: any) => {
+        console.error("Speech Rec Error:", e);
+      };
       
       recognition.onresult = (event: any) => {
         let currentTranscript = '';
@@ -695,10 +705,11 @@ export default function Home() {
       recognitionRef.current = recognition;
     }
     
+    isIntentionalStopRef.current = false;
     try {
       recognitionRef.current.start();
-    } catch(e) {
-      console.error(e);
+    } catch (e) {
+      console.log("Already started");
     }
   };
 
