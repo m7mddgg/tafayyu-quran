@@ -17,7 +17,7 @@ const RECITERS = [
   { id: 'abdulbasit', name: 'عبد الباسط عبد الصمد', url: 'https://server7.mp3quran.net/basit' },
   { id: 'maher', name: 'ماهر المعيقلي', url: 'https://server12.mp3quran.net/maher' },
   { id: 'husary', name: 'محمود خليل الحصري', url: 'https://server13.mp3quran.net/husr' },
-  { id: 'nuainy', name: 'أحمد نعينع', url: 'https://server8.mp3quran.net/nuainy' },
+  { id: 'nuainy', name: 'أحمد نعينع', url: 'https://server11.mp3quran.net/ahmad_nu' },
 ];
 
 export default function Home() {
