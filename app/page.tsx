@@ -71,6 +71,7 @@ export default function Home() {
   const [hifzStartDate, setHifzStartDate] = useState<string | null>(null);
   const [hifzPages, setHifzPages] = useState<number[]>([]);
   const [hifzSessionActive, setHifzSessionActive] = useState<boolean>(false);
+  const [hifzCurrentPage, setHifzCurrentPage] = useState<number | null>(null);
   const [hifzWords, setHifzWords] = useState<any[]>([]);
   const [hifzExpectedWordIndex, setHifzExpectedWordIndex] = useState<number>(0);
   const [isHifzListening, setIsHifzListening] = useState<boolean>(false);
