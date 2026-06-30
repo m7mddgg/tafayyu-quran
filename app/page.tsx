@@ -566,7 +566,7 @@ export default function Home() {
   }
 
   // --------------------------------------------------------
-  // الشاشة الثالثة: شاشة قراءة المصحف (الصفحات)
+  if (activeSection === 'prayer') {
     return (
       <main className={`p-6 md:p-8 min-h-screen text-right bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`} dir="rtl">
         <div className="max-w-4xl mx-auto">
@@ -1367,4 +1367,3 @@ export default function Home() {
     </main>
   );
 }
-
