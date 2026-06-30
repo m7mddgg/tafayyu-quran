@@ -2,6 +2,15 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const normalizeArabicText = (text: string) => {
+  if (!text) return '';
+  return text
+    .replace(/[\u064B-\u065F\u0670]/g, '') // إزالة التشكيل
+    .replace(/[أإآٱ]/g, 'ا') // توحيد الألف
+    .replace(/ة/g, 'ه') // توحيد التاء المربوطة والهاء
+    .replace(/ي/g, 'ى'); // توحيد الياء والألف المقصورة
+};
+
 export default function Home() {
   const [surahs, setSurahs] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<number | null>(null);
@@ -184,7 +193,7 @@ export default function Home() {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setHasSearched(true);
-    axios.get(`https://api.alquran.cloud/v1/search/${encodeURIComponent(searchQuery.trim())}/all/quran-uthmani`)
+    axios.get(`https://api.alquran.cloud/v1/search/${encodeURIComponent(searchQuery.trim())}/all/quran-simple-clean`)
       .then(response => {
         const matches = response.data.data?.matches || [];
         setSearchResults(matches);
@@ -737,10 +746,12 @@ export default function Home() {
   // --------------------------------------------------------
   // قسم القرآن الكريم - القائمة الرئيسية
   // --------------------------------------------------------
-  // حساب السور المطابقة لاسم البحث محلياً
-  const q = searchQuery.trim();
-  const surahMatches = q.length > 0 ? surahs.filter((s: any) =>
-    s.name.includes(q) || s.name.replace('سُورَةُ ', '').includes(q) || (s.englishName && s.englishName.toLowerCase().includes(q.toLowerCase()))
+  // تصفية السور المطابقة لاسم البحث محلياً
+  const qNormalized = normalizeArabicText(searchQuery.trim());
+  const surahMatches = qNormalized.length > 0 ? surahs.filter((s: any) =>
+    normalizeArabicText(s.name).includes(qNormalized) || 
+    normalizeArabicText(s.name.replace('سُورَةُ ', '')).includes(qNormalized) || 
+    (s.englishName && s.englishName.toLowerCase().includes(searchQuery.trim().toLowerCase()))
   ) : [];
 
   return (
@@ -803,12 +814,12 @@ export default function Home() {
           </div>
 
           {/* نتائج البحث الفورية في أسماء السور (بدون ضغط بحث) */}
-          {!hasSearched && q.length > 0 && surahMatches.length > 0 && (
+          {!hasSearched && searchQuery.trim().length > 0 && surahMatches.length > 0 && (
             <div className="mt-4 bg-emerald-50 dark:bg-gray-800 border border-emerald-200 dark:border-emerald-700 rounded-xl p-4">
               <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-3">📖 السور المطابقة ({surahMatches.length}):</p>
               <div className="flex flex-wrap gap-2">
                 {surahMatches.map((s: any) => (
-                  <button key={s.number} onClick={() => handleReadSurah(s.number)}
+                  <button key={s.number} onClick={() => setSelectedSurah(s)}
                     className="bg-white dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 border border-emerald-200 dark:border-emerald-600 text-emerald-800 dark:text-emerald-300 px-4 py-2 rounded-lg font-bold transition text-sm">
                     سورة {s.name.replace('سُورَةُ ', '')} ({s.numberOfAyahs} آية)
                   </button>
