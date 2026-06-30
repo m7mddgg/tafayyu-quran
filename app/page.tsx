@@ -766,7 +766,7 @@ export default function Home() {
                     </div>
                   )}
                   
-                  <span className="quran-text font-quran text-2xl md:text-3xl leading-[2.5] md:leading-[3] text-gray-900 dark:text-gray-100 cursor-pointer transition hover:text-emerald-700 dark:hover:text-emerald-400"
+                  <span className="quran-text font-quran text-2xl md:text-3xl leading-loose text-gray-900 dark:text-gray-100 cursor-pointer transition hover:text-emerald-700 dark:hover:text-emerald-400"
                         onClick={() => {
                           setExpandedTafsir(prev => ({...prev, [ayah.number]: !prev[ayah.number]}));
                         }}>
