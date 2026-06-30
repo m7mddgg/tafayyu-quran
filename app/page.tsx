@@ -44,6 +44,9 @@ export default function Home() {
   const [surahInfoData, setSurahInfoData] = useState<Record<number, string>>({});
   const [selectedSurah, setSelectedSurah] = useState<any | null>(null);
 
+  // حالة مشغل الصوت المستقل
+  const [playingAudioSurah, setPlayingAudioSurah] = useState<number | null>(null);
+
   // جلب قائمة السور والأذكار ومعرفة الصفحة المحفوظة والوضع الداكن عند فتح الموقع
   useEffect(() => {
     axios.get('https://api.alquran.cloud/v1/surah')
@@ -134,8 +137,9 @@ export default function Home() {
       .finally(() => setIsLoadingPage(false));
   };
 
-  // دالة لمعرفة رقم صفحة بداية السورة عند الضغط عليها من القائمة
+  // دالة معرفة رقم صفحة بداية السورة عند الضغط عليها من القائمة
   const handleReadSurah = (surahNumber: number) => {
+    setPlayingAudioSurah(surahNumber);
     axios.get(`https://api.alquran.cloud/v1/surah/${surahNumber}`)
       .then(response => {
         const firstAyahPage = response.data.data.ayahs[0].page;
@@ -224,6 +228,7 @@ export default function Home() {
     setHasSearched(false);
     setSelectedAdhkarCategory(null);
     setAdhkarCounts({});
+    setPlayingAudioSurah(null);
   };
 
   // دالة اختيار فئة أذكار وتهيئة العداد
@@ -297,8 +302,9 @@ export default function Home() {
   // الشاشة الثالثة: شاشة قراءة المصحف (الصفحات)
   // --------------------------------------------------------
   if (currentPage) {
-    // استخراج رقم السورة من أول آية في الصفحة لمشغل الصوت
+    // استخراج رقم السورة من أول آية في الصفحة لضبط المشغل إذا لم يكن هناك سورة قيد التشغيل
     const currentSurahNumber = pageAyahs.length > 0 ? pageAyahs[0].surah?.number : null;
+    const activeAudioSurah = playingAudioSurah || currentSurahNumber;
 
     return (
       <main className={`p-4 md:p-8 min-h-screen text-right bg-amber-50 dark:bg-gray-900 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`}  dir="rtl">
@@ -331,12 +337,12 @@ export default function Home() {
             </div>
 
             {/* مشغل صوت ياسر الدوسري */}
-            {currentSurahNumber && (
+            {activeAudioSurah && (
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-amber-200 dark:border-amber-600">
                 <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">🎧 الشيخ ياسر الدوسري</span>
                 <audio
                   controls
-                  key={currentSurahNumber}
+                  key={activeAudioSurah}
                   preload="auto"
                   className="w-full mt-2"
                   onPlay={(e) => {
@@ -345,7 +351,7 @@ export default function Home() {
                       if (audios[i] !== e.target) audios[i].pause();
                     }
                   }}
-                  src={`https://server11.mp3quran.net/yasser/${String(currentSurahNumber).padStart(3, '0')}.mp3`}
+                  src={`https://server11.mp3quran.net/yasser/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
                 >
                   متصفحك لا يدعم تشغيل الصوت.
                 </audio>
