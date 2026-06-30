@@ -11,6 +11,14 @@ const normalizeArabicText = (text: string) => {
     .replace(/ي/g, 'ى'); // توحيد الياء والألف المقصورة
 };
 
+const RECITERS = [
+  { id: 'yasser', name: 'ياسر الدوسري', url: 'https://server11.mp3quran.net/yasser' },
+  { id: 'mishary', name: 'مشاري العفاسي', url: 'https://server8.mp3quran.net/afs' },
+  { id: 'abdulbasit', name: 'عبد الباسط عبد الصمد', url: 'https://server7.mp3quran.net/basit' },
+  { id: 'maher', name: 'ماهر المعيقلي', url: 'https://server12.mp3quran.net/maher' },
+  { id: 'husary', name: 'محمود خليل الحصري', url: 'https://server13.mp3quran.net/husr' }
+];
+
 export default function Home() {
   const [surahs, setSurahs] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<number | null>(null);
@@ -46,9 +54,44 @@ export default function Home() {
 
   // حالة مشغل الصوت المستقل
   const [playingAudioSurah, setPlayingAudioSurah] = useState<number | null>(null);
+  const [selectedReciter, setSelectedReciter] = useState(RECITERS[0]);
 
-  // جلب قائمة السور والأذكار ومعرفة الصفحة المحفوظة والوضع الداكن عند فتح الموقع
+  // Touch Swipe State
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // Khatmah State
+  const [khatmahGoal, setKhatmahGoal] = useState<number | null>(null);
+  const [khatmahStartDate, setKhatmahStartDate] = useState<string | null>(null);
+  const [readPages, setReadPages] = useState<number[]>([]);
+
+  // Prayer Times State
+  const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
+  const [prayerLocation, setPrayerLocation] = useState<string | null>(null);
+  const [isLoadingPrayer, setIsLoadingPrayer] = useState(false);
+  const [prayerError, setPrayerError] = useState<string | null>(null);
+
+  // Bookmarks State
+  const [bookmarks, setBookmarks] = useState<any[]>([]);
+
+  // جلب قائمة السور والأذكار ومعرفة الصفحة المحفوظة والوضع الداكن والقارئ المفضل وتتبع الختمة والمفضلة عند فتح الموقع
   useEffect(() => {
+    const savedReciter = localStorage.getItem('reciter_id');
+    if (savedReciter) {
+      const reciter = RECITERS.find(r => r.id === savedReciter);
+      if (reciter) setSelectedReciter(reciter);
+    }
+
+    const savedKhatmahGoal = localStorage.getItem('khatmahGoal');
+    const savedKhatmahStart = localStorage.getItem('khatmahStartDate');
+    const savedReadPages = localStorage.getItem('readPages');
+    const savedBookmarks = localStorage.getItem('quran_bookmarks');
+
+    if (savedKhatmahGoal) setKhatmahGoal(Number(savedKhatmahGoal));
+    if (savedKhatmahStart) setKhatmahStartDate(savedKhatmahStart);
+    if (savedReadPages) setReadPages(JSON.parse(savedReadPages));
+    if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
+
     axios.get('https://api.alquran.cloud/v1/surah')
       .then(response => setSurahs(response.data.data))
       .catch(error => console.error(error));
@@ -137,6 +180,120 @@ export default function Home() {
       .finally(() => setIsLoadingPage(false));
   };
 
+  // دالة تغيير القارئ
+  const handleReciterChange = (id: string) => {
+    const reciter = RECITERS.find(r => r.id === id);
+    if (reciter) {
+      setTheme(theme);
+      localStorage.setItem('theme', theme);
+    }
+  };
+
+  // واجهة متتبع الختمة
+  const renderKhatmahTracker = () => {
+    if (!khatmahGoal || !khatmahStartDate) {
+      return (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-emerald-100 dark:border-gray-700 text-center mb-10 mx-auto max-w-3xl">
+          <h2 className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-2">متتبع الختمة 📖</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-5">حدد هدفك لختم القرآن الكريم وسنساعدك في متابعة وردك اليومي</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button onClick={() => startKhatmah(30)} className="px-5 py-2.5 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600 transition">30 يوماً</button>
+            <button onClick={() => startKhatmah(15)} className="px-5 py-2.5 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600 transition">15 يوماً</button>
+            <button onClick={() => startKhatmah(7)} className="px-5 py-2.5 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600 transition">7 أيام</button>
+          </div>
+        </div>
+      );
+    }
+
+    const pagesPerDay = Math.ceil(604 / khatmahGoal);
+    const start = new Date(khatmahStartDate);
+    const now = new Date();
+    const daysElapsed = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24));
+    const targetPages = Math.min((daysElapsed + 1) * pagesPerDay, 604);
+    const progressPercent = Math.min((readPages.length / 604) * 100, 100);
+    const isBehind = readPages.length < targetPages;
+
+    return (
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-emerald-200 dark:border-emerald-800 text-center mb-10 mx-auto max-w-3xl">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-400">متابعة الختمة</h2>
+          <button onClick={() => {
+            if(confirm('هل أنت متأكد أنك تريد إلغاء الختمة الحالية والبدء من جديد؟')) {
+              setKhatmahGoal(null);
+              setKhatmahStartDate(null);
+              setReadPages([]);
+              localStorage.removeItem('khatmahGoal');
+              localStorage.removeItem('khatmahStartDate');
+              localStorage.removeItem('readPages');
+            }
+          }} className="text-xs text-red-500 hover:text-red-700 hover:underline">إلغاء الختمة</button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 text-sm">
+          <div className="bg-emerald-50 dark:bg-gray-700 p-3 rounded-2xl border border-emerald-100 dark:border-gray-600">
+            <span className="block text-gray-500 dark:text-gray-400 mb-1">الهدف</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400 text-lg">{khatmahGoal} يوماً</span>
+          </div>
+          <div className="bg-emerald-50 dark:bg-gray-700 p-3 rounded-2xl border border-emerald-100 dark:border-gray-600">
+            <span className="block text-gray-500 dark:text-gray-400 mb-1">الورد اليومي</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400 text-lg">{pagesPerDay} صفحة</span>
+          </div>
+          <div className="bg-emerald-50 dark:bg-gray-700 p-3 rounded-2xl border border-emerald-100 dark:border-gray-600">
+            <span className="block text-gray-500 dark:text-gray-400 mb-1">ما قرأته</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400 text-lg">{readPages.length} صفحة</span>
+          </div>
+          <div className={`p-3 rounded-2xl border ${isBehind ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'}`}>
+            <span className="block text-gray-500 dark:text-gray-400 mb-1">الحالة</span>
+            <span className={`font-bold ${isBehind ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {isBehind ? `متأخر بـ ${targetPages - readPages.length} صفحة` : 'أنت على المسار الصحيح'}
+            </span>
+          </div>
+        </div>
+        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-2 overflow-hidden border border-gray-200 dark:border-gray-600">
+          <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-3 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+        </div>
+        <span className="text-xs text-gray-500 font-bold">{progressPercent.toFixed(1)}% اكتمل</span>
+      </div>
+    );
+  };
+
+  // دوال الختمة
+  const startKhatmah = (days: number) => {
+    setKhatmahGoal(days);
+    setKhatmahStartDate(new Date().toISOString());
+    setReadPages([]);
+    localStorage.setItem('khatmahGoal', String(days));
+    localStorage.setItem('khatmahStartDate', new Date().toISOString());
+    localStorage.setItem('readPages', JSON.stringify([]));
+  };
+
+  const markPageAsRead = (page: number) => {
+    if (!readPages.includes(page)) {
+      const updated = [...readPages, page];
+      setReadPages(updated);
+      localStorage.setItem('readPages', JSON.stringify(updated));
+    }
+  };
+
+  const removePageFromRead = (page: number) => {
+    const updated = readPages.filter(p => p !== page);
+    setReadPages(updated);
+    localStorage.setItem('readPages', JSON.stringify(updated));
+  };
+
+  // دوال المفضلة
+  const toggleBookmark = (item: any, type: 'ayah' | 'fatwa') => {
+    let updated = [...bookmarks];
+    const existsIndex = updated.findIndex(b => b.type === type && (type === 'ayah' ? b.data.number === item.number : b.data.title === item.title));
+    
+    if (existsIndex >= 0) {
+      updated.splice(existsIndex, 1);
+    } else {
+      updated.push({ type, data: item });
+    }
+    setBookmarks(updated);
+    localStorage.setItem('quran_bookmarks', JSON.stringify(updated));
+  };
+
   // دالة معرفة رقم صفحة بداية السورة عند الضغط عليها من القائمة
   const handleReadSurah = (surahNumber: number) => {
     setPlayingAudioSurah(surahNumber);
@@ -155,6 +312,33 @@ export default function Home() {
 
   const prevPage = () => {
     if (currentPage !== null && currentPage > 1) loadPage(currentPage - 1);
+  };
+
+  // دوال التقليب باللمس (Swipe)
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    // في العربية (من اليمين لليسار)، السحب لليسار يعني الصفحة التالية، والسحب لليمين يعني الصفحة السابقة
+    if (isLeftSwipe) {
+      nextPage();
+    }
+    if (isRightSwipe) {
+      prevPage();
+    }
   };
 
   // دالة حفظ الصفحة الحالية
@@ -215,20 +399,52 @@ export default function Home() {
     setSearchResults([]);
     setHasSearched(false);
   };
-
-  // دالة العودة للصفحة الرئيسية
   const goToLanding = () => {
     setActiveSection(null);
     setCurrentPage(null);
-    setPageAyahs([]);
-    setExpandedTafsir({});
-    setShowTranslation(false);
+    setPageInput('');
     setSearchQuery('');
     setSearchResults([]);
     setHasSearched(false);
     setSelectedAdhkarCategory(null);
     setAdhkarCounts({});
     setPlayingAudioSurah(null);
+    setSelectedFatawaCategory(null);
+  };
+
+  // دالة جلب مواقيت الصلاة
+  const fetchPrayerTimes = () => {
+    setActiveSection('prayer');
+    if (prayerTimes) return; // تم الجلب مسبقاً
+    
+    setIsLoadingPrayer(true);
+    setPrayerError(null);
+
+    if (!navigator.geolocation) {
+      setPrayerError("متصفحك لا يدعم تحديد الموقع الجغرافي.");
+      setIsLoadingPrayer(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        axios.get(`https://api.aladhan.com/v1/timings?latitude=${latitude}&longitude=${longitude}&method=5`)
+          .then(res => {
+            setPrayerTimes(res.data.data);
+            setPrayerLocation("موقعك الحالي");
+            setIsLoadingPrayer(false);
+          })
+          .catch(() => {
+            setPrayerError("حدث خطأ أثناء جلب مواقيت الصلاة.");
+            setIsLoadingPrayer(false);
+          });
+      },
+      () => {
+        setPrayerError("لم نتمكن من تحديد موقعك. يرجى السماح بصلاحية الموقع الجغرافي.");
+        setIsLoadingPrayer(false);
+      }
+    );
   };
 
   // دالة اختيار فئة أذكار وتهيئة العداد
@@ -299,6 +515,125 @@ export default function Home() {
   };
 
   // --------------------------------------------------------
+  if (activeSection === 'bookmarks') {
+    return (
+      <main className={`p-6 md:p-8 min-h-screen text-right bg-gradient-to-b from-yellow-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`} dir="rtl">
+        <div className="max-w-4xl mx-auto">
+          {/* شريط التحكم */}
+          <div className="flex flex-wrap justify-between items-center mb-8 gap-3 bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl backdrop-blur-sm border border-yellow-100 dark:border-yellow-900">
+            <button onClick={goToLanding} className="bg-yellow-100 dark:bg-yellow-900 hover:bg-yellow-200 dark:hover:bg-yellow-800 text-yellow-800 dark:text-yellow-200 px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2">
+              <span>🏠</span> العودة للرئيسية
+            </button>
+            <h1 className="text-3xl md:text-4xl font-bold text-yellow-700 dark:text-yellow-400">مفضلاتي ⭐</h1>
+            <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-xl font-bold transition">
+              {theme === 'dark' ? '💡 نهار' : theme === 'sepia' ? '🌙 داكن' : '📜 كلاسيك'}
+            </button>
+          </div>
+
+          {bookmarks.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">⭐</div>
+              <h2 className="text-2xl font-bold text-gray-500 dark:text-gray-400">لا توجد عناصر في المفضلة بعد.</h2>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {bookmarks.map((b, idx) => (
+                <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-yellow-100 dark:border-yellow-900">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-sm font-bold text-white bg-yellow-500 px-3 py-1 rounded-full">
+                      {b.type === 'ayah' ? 'آية قرآنية' : 'فتوى'}
+                    </span>
+                    <button onClick={() => toggleBookmark(b.data, b.type)} className="text-2xl text-yellow-500 hover:text-yellow-600 transition">★</button>
+                  </div>
+                  {b.type === 'ayah' ? (
+                    <div>
+                      <p className="text-2xl font-bold font-quran text-gray-800 dark:text-gray-100 mb-4 leading-loose">{b.data.text} ﴿{b.data.numberInSurah}﴾</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">سورة {b.data.surah?.name}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">{b.data.question}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{b.data.answer}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // --------------------------------------------------------
+  // الشاشة الثالثة: شاشة قراءة المصحف (الصفحات)
+    return (
+      <main className={`p-6 md:p-8 min-h-screen text-right bg-gradient-to-b from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`} dir="rtl">
+        <div className="max-w-4xl mx-auto">
+          {/* شريط التحكم */}
+          <div className="flex flex-wrap justify-between items-center mb-8 gap-3 bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl backdrop-blur-sm border border-indigo-100 dark:border-indigo-900">
+            <button onClick={goToLanding} className="bg-indigo-100 dark:bg-indigo-900 hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2">
+              <span>🏠</span> العودة للرئيسية
+            </button>
+            <h1 className="text-3xl md:text-4xl font-bold text-indigo-700 dark:text-indigo-400">مواقيت الصلاة</h1>
+            <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-xl font-bold transition">
+              {theme === 'dark' ? '💡 نهار' : theme === 'sepia' ? '🌙 داكن' : '📜 كلاسيك'}
+            </button>
+          </div>
+
+          {isLoadingPrayer && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mb-4"></div>
+              <p className="text-xl text-indigo-700 dark:text-indigo-400 font-bold">جاري تحديد موقعك وجلب المواقيت...</p>
+            </div>
+          )}
+
+          {prayerError && (
+            <div className="bg-red-50 dark:bg-red-900/30 p-8 rounded-3xl text-center border border-red-200 dark:border-red-800">
+              <div className="text-5xl mb-4">📍</div>
+              <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-3">{prayerError}</h2>
+              <button onClick={fetchPrayerTimes} className="mt-4 px-6 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-md">
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+
+          {prayerTimes && !isLoadingPrayer && !prayerError && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-indigo-100 dark:border-indigo-900 text-center">
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">{prayerTimes.date.hijri.weekday.ar}</h3>
+                <p className="text-lg text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
+                  {prayerTimes.date.hijri.day} {prayerTimes.date.hijri.month.ar} {prayerTimes.date.hijri.year} هـ
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  الموافق: {prayerTimes.date.readable}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[
+                  { name: 'الفجر', time: prayerTimes.timings.Fajr, icon: '🌅' },
+                  { name: 'الشروق', time: prayerTimes.timings.Sunrise, icon: '🌄' },
+                  { name: 'الظهر', time: prayerTimes.timings.Dhuhr, icon: '☀️' },
+                  { name: 'العصر', time: prayerTimes.timings.Asr, icon: '🌤️' },
+                  { name: 'المغرب', time: prayerTimes.timings.Maghrib, icon: '🌇' },
+                  { name: 'العشاء', time: prayerTimes.timings.Isha, icon: '🌙' },
+                ].map((prayer, idx) => (
+                  <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-indigo-50 dark:border-gray-700 text-center flex flex-col items-center justify-center transform hover:scale-105 transition-transform">
+                    <div className="text-4xl mb-3">{prayer.icon}</div>
+                    <h4 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">{prayer.name}</h4>
+                    <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400 dir-ltr">{prayer.time}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // --------------------------------------------------------
   // الشاشة الثالثة: شاشة قراءة المصحف (الصفحات)
   // --------------------------------------------------------
   if (currentPage) {
@@ -336,27 +671,55 @@ export default function Home() {
               </div>
             </div>
 
-            {/* مشغل صوت ياسر الدوسري */}
+            {/* مشغل صوت القرآن */}
             {activeAudioSurah && (
-              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-amber-200 dark:border-amber-600">
-                <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">🎧 الشيخ ياسر الدوسري</span>
-                <audio
-                  controls
-                  key={activeAudioSurah}
-                  preload="auto"
-                  className="w-full mt-2"
-                  onPlay={(e) => {
-                    const audios = document.getElementsByTagName('audio');
-                    for (let i = 0; i < audios.length; i++) {
-                      if (audios[i] !== e.target) audios[i].pause();
-                    }
-                  }}
-                  src={`https://server11.mp3quran.net/yasser/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
-                >
-                  متصفحك لا يدعم تشغيل الصوت.
-                </audio>
+              <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-600">
+                <div className="flex flex-col md:flex-row items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">🎧 القارئ:</span>
+                    <select
+                      value={selectedReciter.id}
+                      onChange={(e) => handleReciterChange(e.target.value)}
+                      className="bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 rounded p-1 text-sm outline-none text-amber-900 dark:text-amber-100"
+                    >
+                      {RECITERS.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 w-full flex items-center justify-between gap-4">
+                    <audio
+                      controls
+                      key={`${selectedReciter.id}-${activeAudioSurah}`}
+                      preload="auto"
+                      className="w-full"
+                      onPlay={(e) => {
+                        const audios = document.getElementsByTagName('audio');
+                        for (let i = 0; i < audios.length; i++) {
+                          if (audios[i] !== e.target) audios[i].pause();
+                        }
+                      }}
+                      src={`${selectedReciter.url}/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
+                    >
+                      متصفحك لا يدعم تشغيل الصوت.
+                    </audio>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* أزرار الختمة */}
+            <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-600 flex justify-center">
+                {readPages.includes(currentPage) ? (
+                  <button onClick={() => removePageFromRead(currentPage)} className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 rounded-lg text-sm font-bold flex items-center gap-2 transition hover:bg-emerald-200">
+                    <span>✅</span> تمت قراءة هذه الصفحة
+                  </button>
+                ) : (
+                  <button onClick={() => markPageAsRead(currentPage)} className="px-4 py-2 bg-white dark:bg-gray-700 border border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                    إتمام قراءة الصفحة في الختمة
+                  </button>
+                )}
+            </div>
           </div>
 
           {/* حالة التحميل */}
@@ -368,45 +731,52 @@ export default function Home() {
           
           {/* ورقة المصحف */}
           {!isLoadingPage && (
-          <div key={flipKey} className="page-flip-enter quran-frame classic-frame bg-white dark:bg-gray-800">
+          <div 
+            key={flipKey} 
+            className="page-flip-enter quran-frame classic-frame bg-white dark:bg-gray-800"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
             <div className="quran-block">
               {pageAyahs.map((ayah, index) => (
-                <span key={index} className="inline">
-                  {/* ترويسة السورة وبسملتها */}
+                <span key={index} className="inline group relative">
+                  {/* أزرار الآية المخفية تظهر عند التمرير */}
+                  <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10 pointer-events-none group-hover:pointer-events-auto">
+                    <button onClick={() => toggleBookmark(ayah, 'ayah')} className="text-yellow-500 hover:scale-110 p-1">
+                      {bookmarks.some(b => b.type === 'ayah' && b.data.number === ayah.number) ? '★' : '☆'}
+                    </button>
+                  </div>
+
+                  {/* علامة البسملة للسور */}
                   {ayah.numberInSurah === 1 && (
-                    <div className="w-full">
-                      <div className="surah-header-classic">سُورَةُ {ayah.surah?.name.replace('سُورَةُ ', '')}</div>
-                      {ayah.surah?.number !== 1 && ayah.surah?.number !== 9 && (
-                        <div className="text-center font-bold text-2xl mb-4 quran-text">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>
-                      )}
+                    <div className="block text-center my-6">
+                      <div className="surah-header-classic relative inline-block px-12 py-3 border-y-2 border-emerald-200 dark:border-emerald-700/50">
+                        <span className="text-xl md:text-2xl font-bold text-emerald-800 dark:text-emerald-400">
+                          سورة {ayah.surah.name.replace('سُورَةُ ', '')}
+                        </span>
+                      </div>
                     </div>
                   )}
-
-                  <span className="text-3xl md:text-4xl quran-text text-gray-900 dark:text-gray-100 leading-[3rem] md:leading-[4rem]">
-                    {/* إزالة البسملة من نص الآية الأولى إن وجدت لعدم التكرار */}
-                    {ayah.numberInSurah === 1 && ayah.surah?.number !== 1 ? ayah.text.replace('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', '').trim() : ayah.text}
-                  </span>
+                  {/* استثناء الفاتحة والتوبة من البسملة */}
+                  {ayah.numberInSurah === 1 && ayah.surah.number !== 1 && ayah.surah.number !== 9 && (
+                    <div className="block text-center text-xl md:text-2xl font-bold mb-6 text-emerald-700 dark:text-emerald-500 font-quran">
+                      بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                    </div>
+                  )}
                   
-                  <span className="ayah-marker text-amber-700 dark:text-amber-500">
-                    {ayah.numberInSurah}
-                  </span>
-
-                  {/* زر التفسير لكل آية */}
-                  <span className="inline-flex mx-1 align-middle">
-                    <button
-                      onClick={() => toggleTafsir(index)}
-                      className={`text-xs px-2.5 py-1 rounded-full font-bold transition ${
-                        expandedTafsir[index]
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800'
-                      }`}
-                    >
-                      📖 التفسير
-                    </button>
+                  <span className="quran-text font-quran text-2xl md:text-3xl leading-[2.5] md:leading-[3] text-gray-900 dark:text-gray-100 cursor-pointer transition hover:text-emerald-700 dark:hover:text-emerald-400"
+                        onClick={() => {
+                          setExpandedTafsir(prev => ({...prev, [ayah.number]: !prev[ayah.number]}));
+                        }}>
+                    {ayah.text.replace('بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ', '').trim()} 
+                    <span className="ayah-number mx-1 text-emerald-600 dark:text-emerald-400 select-none">
+                      ﴿{ayah.numberInSurah}﴾
+                    </span>
                   </span>
 
                   {/* بطاقة التفسير */}
-                  {expandedTafsir[index] && ayah.tafsir && (
+                  {expandedTafsir[ayah.number] && ayah.tafsir && (
                     <div className="block my-3 mx-auto w-full text-right p-4 rounded-lg bg-amber-50 dark:bg-gray-700 border border-amber-200 dark:border-amber-600 shadow-sm" style={{ textAlign: 'right' }}>
                       <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2">📖 التفسير الميسر</p>
                       <p className="text-base leading-8 text-gray-800 dark:text-gray-200 font-sans">{ayah.tafsir}</p>
@@ -919,17 +1289,29 @@ export default function Home() {
               </button>
 
               <div>
+                <div className="flex items-center gap-2 mt-4 mb-2">
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">القراءة بصوت:</span>
+                  <select
+                    value={selectedReciter.id}
+                    onChange={(e) => handleReciterChange(e.target.value)}
+                    className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded p-1 text-xs outline-none text-gray-700 dark:text-gray-300"
+                  >
+                    {RECITERS.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <audio
                   controls
                   preload="none"
-                  className="w-full mt-2"
+                  className="w-full"
                   onPlay={(e) => {
                     const audios = document.getElementsByTagName('audio');
                     for (let i = 0; i < audios.length; i++) {
                       if (audios[i] !== e.target) audios[i].pause();
                     }
                   }}
-                  src={`https://server11.mp3quran.net/yasser/${String(surah.number).padStart(3, '0')}.mp3`}
+                  src={`${selectedReciter.url}/${String(surah.number).padStart(3, '0')}.mp3`}
                 >
                   متصفحك لا يدعم تشغيل الصوت.
                 </audio>

@@ -1,0 +1,17 @@
+{
+  "name": "تطبيق القرآن الكريم والأذكار",
+  "short_name": "القرآن",
+  "description": "تطبيق إسلامي شامل للقرآن الكريم، الأذكار والفتاوى بدون إنترنت",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

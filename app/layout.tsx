@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, El_Messiri } from "next/font/google";
 import "./globals.css";
 
@@ -18,9 +18,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#059669",
+};
+
 export const metadata: Metadata = {
   title: "تفيُّؤ",
   description: "تطبيق إسلامي شامل للقرآن الكريم والأذكار والفتاوى",
+  manifest: "/manifest.json",
+  icons: {
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({
