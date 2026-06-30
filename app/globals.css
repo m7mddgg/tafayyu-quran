@@ -80,8 +80,16 @@ body {
 
 /* ??? ????? ?????? / ??????? (Sepia) */
 .theme-sepia {
-  background-color: #fdf6e3;
-  color: #4a3e2a;
+  background-color: #fdf6e3 !important;
+  background-image: none !important;
+  color: #4a3e2a !important;
+}
+.theme-sepia .bg-white,
+.theme-sepia .bg-gray-50,
+.theme-sepia .bg-emerald-50,
+.theme-sepia .bg-sky-50 {
+  background-color: #fff9e6 !important;
+  border-color: #e6d5b8 !important;
 }
 .theme-sepia .classic-frame {
   background-color: #fff9e6;
