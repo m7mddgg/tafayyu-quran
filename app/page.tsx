@@ -702,45 +702,56 @@ export default function Home() {
     }
   };
 
-  const startHifzSession = (pageNumber: number) => {
+  const startHifzSession = async (pageNumber: number) => {
     setIsLoadingPage(true);
-    axios.get(`https://api.alquran.cloud/v1/page/${pageNumber}/quran-uthmani`)
-      .then(response => {
-        const ayahs = response.data.data.ayahs;
-        const wordsArray: any[] = [];
+    try {
+      const [uthmaniRes, cleanRes] = await Promise.all([
+        axios.get(`https://api.alquran.cloud/v1/page/${pageNumber}/quran-uthmani`),
+        axios.get(`https://api.alquran.cloud/v1/page/${pageNumber}/quran-simple-clean`)
+      ]);
+      
+      const uthmaniAyahs = uthmaniRes.data.data.ayahs;
+      const cleanAyahs = cleanRes.data.data.ayahs;
+      const wordsArray: any[] = [];
+      
+      for (let i = 0; i < uthmaniAyahs.length; i++) {
+        const uAyah = uthmaniAyahs[i];
+        const cAyah = cleanAyahs[i];
         
-        ayahs.forEach((ayah: any) => {
-          let text = ayah.text;
-          // إزالة البسملة إذا لم تكن الفاتحة
-          if (ayah.numberInSurah === 1 && ayah.surah.number !== 1 && ayah.surah.number !== 9) {
-             text = text.replace('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', '').trim();
-          }
-          const wordsInAyah = text.split(' ');
-          wordsInAyah.forEach((w: string) => {
-             if (w.trim()) {
-               wordsArray.push({
-                 original: w,
-                 normalized: normalizeArabicText(w),
-                 ayahNumber: ayah.number,
-                 ayahNumberInSurah: ayah.numberInSurah,
-                 surah: ayah.surah,
-                 match: false,
-                 isHint: false
-               });
-             }
-          });
-        });
+        let uText = uAyah.text;
+        let cText = cAyah.text.replace(/\uFEFF/g, ''); // إزالة العلامات المخفية
         
-        setHifzWords(wordsArray);
-        setHifzExpectedWordIndex(0);
-        setHifzCurrentPage(pageNumber);
-        setHifzSessionActive(true);
-        setIsLoadingPage(false);
-      })
-      .catch(error => {
-        console.error(error);
-        setIsLoadingPage(false);
-      });
+        // إزالة البسملة إذا لم تكن الفاتحة
+        if (uAyah.numberInSurah === 1 && uAyah.surah.number !== 1 && uAyah.surah.number !== 9) {
+           uText = uText.replace('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', '').trim();
+           cText = cText.replace('بسم الله الرحمن الرحيم', '').trim();
+        }
+        
+        const uWords = uText.split(' ').filter((w: string) => w.trim() !== '');
+        const cWords = cText.split(' ').filter((w: string) => w.trim() !== '');
+        
+        for (let j = 0; j < uWords.length; j++) {
+           wordsArray.push({
+             original: uWords[j],
+             normalized: normalizeArabicText(cWords[j] || uWords[j]),
+             ayahNumber: uAyah.number,
+             ayahNumberInSurah: uAyah.numberInSurah,
+             surah: uAyah.surah,
+             match: false,
+             isHint: false
+           });
+        }
+      }
+      
+      setHifzWords(wordsArray);
+      setHifzExpectedWordIndex(0);
+      setHifzCurrentPage(pageNumber);
+      setHifzSessionActive(true);
+      setIsLoadingPage(false);
+    } catch (error) {
+      console.error(error);
+      setIsLoadingPage(false);
+    }
   };
 
   // دالة جلب مواقيت الصلاة
