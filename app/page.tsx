@@ -184,8 +184,8 @@ export default function Home() {
   const handleReciterChange = (id: string) => {
     const reciter = RECITERS.find(r => r.id === id);
     if (reciter) {
-      setTheme(theme);
-      localStorage.setItem('theme', theme);
+      setSelectedReciter(reciter);
+      localStorage.setItem('reciter_id', reciter.id);
     }
   };
 
