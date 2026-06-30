@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
 const normalizeArabicText = (text: string) => {
@@ -66,6 +66,16 @@ export default function Home() {
   const [khatmahStartDate, setKhatmahStartDate] = useState<string | null>(null);
   const [readPages, setReadPages] = useState<number[]>([]);
 
+  // Hifz State
+  const [hifzGoal, setHifzGoal] = useState<number | null>(null);
+  const [hifzStartDate, setHifzStartDate] = useState<string | null>(null);
+  const [hifzPages, setHifzPages] = useState<number[]>([]);
+  const [hifzSessionActive, setHifzSessionActive] = useState<boolean>(false);
+  const [hifzWords, setHifzWords] = useState<any[]>([]);
+  const [hifzExpectedWordIndex, setHifzExpectedWordIndex] = useState<number>(0);
+  const [isHifzListening, setIsHifzListening] = useState<boolean>(false);
+  const recognitionRef = useRef<any>(null);
+
   // Prayer Times State
   const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
   const [prayerLocation, setPrayerLocation] = useState<string | null>(null);
@@ -87,11 +97,19 @@ export default function Home() {
     const savedKhatmahStart = localStorage.getItem('khatmahStartDate');
     const savedReadPages = localStorage.getItem('readPages');
     const savedBookmarks = localStorage.getItem('quran_bookmarks');
+    
+    const savedHifzGoal = localStorage.getItem('hifzGoal');
+    const savedHifzStart = localStorage.getItem('hifzStartDate');
+    const savedHifzPages = localStorage.getItem('hifzPages');
 
     if (savedKhatmahGoal) setKhatmahGoal(Number(savedKhatmahGoal));
     if (savedKhatmahStart) setKhatmahStartDate(savedKhatmahStart);
     if (savedReadPages) setReadPages(JSON.parse(savedReadPages));
     if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
+
+    if (savedHifzGoal) setHifzGoal(Number(savedHifzGoal));
+    if (savedHifzStart) setHifzStartDate(savedHifzStart);
+    if (savedHifzPages) setHifzPages(JSON.parse(savedHifzPages));
 
     axios.get('https://api.alquran.cloud/v1/surah')
       .then(response => setSurahs(response.data.data))
@@ -198,6 +216,179 @@ export default function Home() {
       setSelectedReciter(reciter);
       localStorage.setItem('reciter_id', reciter.id);
     }
+  };
+
+  const startHifzPlan = (days: number) => {
+    setHifzGoal(days);
+    setHifzStartDate(new Date().toISOString());
+    setHifzPages([]);
+    localStorage.setItem('hifzGoal', String(days));
+    localStorage.setItem('hifzStartDate', new Date().toISOString());
+    localStorage.setItem('hifzPages', JSON.stringify([]));
+  };
+
+  const markHifzPageAsDone = (page: number) => {
+    if (!hifzPages.includes(page)) {
+      const newPages = [...hifzPages, page];
+      setHifzPages(newPages);
+      localStorage.setItem('hifzPages', JSON.stringify(newPages));
+    }
+  };
+
+  const showHifzHint = () => {
+    setHifzWords(prev => {
+      const newWords = [...prev];
+      if (hifzExpectedWordIndex < newWords.length) {
+        newWords[hifzExpectedWordIndex].isHint = true;
+      }
+      return newWords;
+    });
+  };
+
+  const renderHifzSection = () => {
+    if (hifzSessionActive && hifzCurrentPage) {
+      return (
+        <div className="bg-white dark:bg-gray-800 p-4 md:p-8 rounded-3xl shadow-lg border border-emerald-100 dark:border-gray-700 mx-auto max-w-4xl relative">
+          <button onClick={handleOpenHifz} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 font-bold">
+             العودة
+          </button>
+          
+          <h2 className="text-2xl font-bold text-center text-emerald-700 dark:text-emerald-400 mb-6 mt-4">جلسة الحفظ: صفحة {hifzCurrentPage}</h2>
+          
+          <div className="flex justify-center gap-4 mb-8">
+             <button 
+                onClick={isHifzListening ? stopHifzListening : startHifzListening}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full text-white font-bold transition-all shadow-md ${isHifzListening ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+             >
+                <span className="text-xl">{isHifzListening ? '⏹️' : '🎙️'}</span>
+                {isHifzListening ? 'إيقاف التسميع' : 'ابدأ التسميع'}
+             </button>
+             
+             <button 
+                onClick={showHifzHint}
+                className="flex items-center gap-2 px-6 py-3 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800 font-bold transition-all border border-amber-300 dark:border-amber-700"
+             >
+                <span className="text-xl">💡</span>
+                تلميح
+             </button>
+          </div>
+          
+          <div className="quran-block bg-emerald-50/50 dark:bg-gray-900/50 p-6 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/50 min-h-[300px]">
+             {hifzWords.map((wordObj, i) => (
+                <span key={i} className={`inline-block mx-1 font-quran text-2xl md:text-3xl leading-loose transition-all duration-300 ${
+                  wordObj.match 
+                    ? 'text-emerald-600 dark:text-emerald-400 opacity-100 drop-shadow-sm' 
+                    : wordObj.isHint 
+                      ? 'text-red-500 dark:text-red-400 opacity-100'
+                      : 'text-gray-300 dark:text-gray-700 select-none blur-[2px] transition hover:blur-none'
+                }`}>
+                   {wordObj.original}
+                </span>
+             ))}
+          </div>
+          
+          {hifzExpectedWordIndex >= hifzWords.length && hifzWords.length > 0 && (
+             <div className="mt-8 text-center">
+                <div className="text-2xl font-bold text-emerald-600 mb-4">🎉 ما شاء الله! أتممت تسميع الصفحة بنجاح.</div>
+                <button 
+                   onClick={() => {
+                     markHifzPageAsDone(hifzCurrentPage);
+                     handleOpenHifz();
+                   }}
+                   className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-bold shadow-lg transition-transform hover:scale-105"
+                >
+                   اعتماد الحفظ والعودة
+                </button>
+             </div>
+          )}
+        </div>
+      );
+    }
+    
+    // UI if no goal set
+    if (!hifzGoal || !hifzStartDate) {
+      return (
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-emerald-100 dark:border-gray-700 text-center mb-10 mx-auto max-w-3xl">
+          <div className="text-6xl mb-4">🧠</div>
+          <h2 className="text-3xl font-bold text-emerald-700 dark:text-emerald-400 mb-4">خطط لحفظ القرآن</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-8 text-lg">حدد المدة التي ترغب فيها بإتمام حفظ القرآن الكريم، وسنقوم بتنظيم الورد اليومي لك واختبارك بالصوت.</p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <button onClick={() => startHifzPlan(365 * 3)} className="px-6 py-3 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600">3 سنوات</button>
+            <button onClick={() => startHifzPlan(365 * 2)} className="px-6 py-3 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600">سنتان</button>
+            <button onClick={() => startHifzPlan(365)} className="px-6 py-3 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600">سنة واحدة</button>
+            <button onClick={() => startHifzPlan(30)} className="px-6 py-3 bg-emerald-50 dark:bg-gray-700 hover:bg-emerald-100 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 rounded-xl font-bold border border-emerald-200 dark:border-gray-600">مراجعة مكثفة (شهر)</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Tracker UI
+    const pagesPerDay = Math.ceil(604 / hifzGoal);
+    const start = new Date(hifzStartDate);
+    const now = new Date();
+    const daysElapsed = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24));
+    const targetPages = Math.min((daysElapsed + 1) * pagesPerDay, 604);
+    const progressPercent = Math.min((hifzPages.length / 604) * 100, 100);
+    const isBehind = hifzPages.length < targetPages;
+    const nextPageToMemorize = hifzPages.length > 0 ? Math.max(...hifzPages) + 1 : 1;
+
+    return (
+      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md p-6 rounded-3xl shadow-lg border-2 border-emerald-100 dark:border-gray-700 mb-10 mx-auto max-w-4xl relative overflow-hidden">
+        <div className="flex justify-between items-start mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-emerald-800 dark:text-emerald-400">متابعة الحفظ</h2>
+          <button onClick={() => {
+            if(confirm('هل أنت متأكد أنك تريد إعادة ضبط خطة الحفظ الخاصة بك؟')) {
+              setHifzGoal(null);
+              setHifzStartDate(null);
+              setHifzPages([]);
+              localStorage.removeItem('hifzGoal');
+              localStorage.removeItem('hifzStartDate');
+              localStorage.removeItem('hifzPages');
+            }
+          }} className="text-sm text-red-500 hover:text-red-700 hover:underline">إعادة ضبط</button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-emerald-50 dark:bg-gray-700 p-4 rounded-2xl border border-emerald-100 dark:border-gray-600 text-center">
+            <span className="block text-gray-500 dark:text-gray-400 text-sm mb-1">هدف الحفظ</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-300 text-xl">{hifzGoal} يوم</span>
+          </div>
+          <div className="bg-emerald-50 dark:bg-gray-700 p-4 rounded-2xl border border-emerald-100 dark:border-gray-600 text-center">
+            <span className="block text-gray-500 dark:text-gray-400 text-sm mb-1">الورد اليومي</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-300 text-xl">{pagesPerDay} صفحة</span>
+          </div>
+          <div className="bg-emerald-50 dark:bg-gray-700 p-4 rounded-2xl border border-emerald-100 dark:border-gray-600 text-center">
+            <span className="block text-gray-500 dark:text-gray-400 text-sm mb-1">ما تم حفظه</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-300 text-xl">{hifzPages.length} صفحة</span>
+          </div>
+          <div className={`p-4 rounded-2xl border text-center ${isBehind ? 'bg-red-50 border-red-100 dark:bg-red-900/30 dark:border-red-800/50' : 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/30 dark:border-emerald-800/50'}`}>
+            <span className="block text-gray-500 dark:text-gray-400 text-sm mb-1">الحالة</span>
+            <span className={`font-bold text-xl ${isBehind ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+              {isBehind ? `متأخر (${targetPages - hifzPages.length} ص)` : 'ممتاز، مستمر!'}
+            </span>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <div className="flex justify-between text-sm mb-2 font-bold text-gray-700 dark:text-gray-300">
+            <span>نسبة الحفظ الكلية</span>
+            <span>{progressPercent.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden shadow-inner">
+            <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-4 transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }}></div>
+          </div>
+        </div>
+        
+        <div className="text-center mt-8">
+           <button 
+             onClick={() => startHifzSession(nextPageToMemorize > 604 ? 604 : nextPageToMemorize)}
+             className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-bold text-xl shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-3 mx-auto w-full md:w-auto"
+           >
+              <span>ابدأ تسميع ورد اليوم</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full text-sm">صفحة {nextPageToMemorize > 604 ? 604 : nextPageToMemorize}</span>
+           </button>
+        </div>
+      </div>
+    );
   };
 
   // واجهة متتبع الختمة
@@ -421,6 +612,134 @@ export default function Home() {
     setAdhkarCounts({});
     setPlayingAudioSurah(null);
     setSelectedFatawaCategory(null);
+    setHifzSessionActive(false);
+  };
+
+  const handleOpenHifz = () => {
+    setActiveSection('hifz');
+    setCurrentPage(null);
+    setHifzSessionActive(false);
+    stopHifzListening();
+  };
+
+  const normalizeArabicText = (text: string) => {
+    if (!text) return '';
+    return text
+      .replace(/[\u064B-\u065F\u0670\u0651\u0654\u0655\u06DF\u06E2\u06E3\u06E5\u06E6\u06E8\u06EA-\u06ED\u06D6-\u06DC]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/ـ/g, '')
+      .replace(/[^\u0600-\u06FF\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const stopHifzListening = () => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch(e) {}
+    }
+    setIsHifzListening(false);
+  };
+
+  const startHifzListening = () => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("عذراً، متصفحك لا يدعم التعرف على الصوت. جرب متصفح Google Chrome.");
+      return;
+    }
+
+    if (!recognitionRef.current) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'ar-SA';
+      
+      recognition.onstart = () => setIsHifzListening(true);
+      recognition.onend = () => setIsHifzListening(false);
+      recognition.onerror = (e: any) => console.error("Speech Rec Error:", e);
+      
+      recognition.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          currentTranscript += event.results[i][0].transcript + ' ';
+        }
+        
+        const spokenNormalized = normalizeArabicText(currentTranscript);
+        const spokenWords = spokenNormalized.split(' ').filter(w => w.length > 0);
+        
+        setHifzExpectedWordIndex(prevIdx => {
+          let nextIdx = prevIdx;
+          setHifzWords(prevWords => {
+            const newWords = [...prevWords];
+            let matchedInThisChunk = false;
+            
+            for (const spokenWord of spokenWords) {
+              if (nextIdx < newWords.length) {
+                if (spokenWord === newWords[nextIdx].normalized) {
+                  newWords[nextIdx].match = true;
+                  nextIdx++;
+                  matchedInThisChunk = true;
+                }
+              }
+            }
+            return matchedInThisChunk ? newWords : prevWords;
+          });
+          return nextIdx;
+        });
+      };
+      recognitionRef.current = recognition;
+    }
+    
+    try {
+      recognitionRef.current.start();
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const startHifzSession = (pageNumber: number) => {
+    setIsLoadingPage(true);
+    axios.get(`https://api.alquran.cloud/v1/page/${pageNumber}/quran-uthmani`)
+      .then(response => {
+        const ayahs = response.data.data.ayahs;
+        const wordsArray: any[] = [];
+        
+        ayahs.forEach((ayah: any) => {
+          let text = ayah.text;
+          // إزالة البسملة إذا لم تكن الفاتحة
+          if (ayah.numberInSurah === 1 && ayah.surah.number !== 1 && ayah.surah.number !== 9) {
+             text = text.replace('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', '').trim();
+          }
+          const wordsInAyah = text.split(' ');
+          wordsInAyah.forEach((w: string) => {
+             if (w.trim()) {
+               wordsArray.push({
+                 original: w,
+                 normalized: normalizeArabicText(w),
+                 ayahNumber: ayah.number,
+                 ayahNumberInSurah: ayah.numberInSurah,
+                 surah: ayah.surah,
+                 match: false,
+                 isHint: false
+               });
+             }
+          });
+        });
+        
+        setHifzWords(wordsArray);
+        setHifzExpectedWordIndex(0);
+        setHifzCurrentPage(pageNumber);
+        setHifzSessionActive(true);
+        setIsLoadingPage(false);
+      })
+      .catch(error => {
+        console.error(error);
+        setIsLoadingPage(false);
+      });
   };
 
   // دالة جلب مواقيت الصلاة
@@ -886,15 +1205,29 @@ export default function Home() {
             {theme === 'dark' ? '🌙 الوضع الداكن' : theme === 'sepia' ? '📜 الوضع الكلاسيكي' : '☀️ الوضع الفاتح'}
           </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* كارت القرآن الكريم */}
             <button
               onClick={() => setActiveSection('quran')}
-              className="group bg-white dark:bg-gray-800 border-2 border-emerald-200 dark:border-emerald-800 rounded-2xl p-10 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
+              className="group bg-white dark:bg-gray-800 border-2 border-emerald-200 dark:border-emerald-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
             >
-              <span className="text-7xl block mb-6 group-hover:scale-110 transition-transform duration-300">📖</span>
-              <h2 className="text-3xl font-bold text-emerald-700 dark:text-emerald-400 mb-3">القرآن الكريم</h2>
-              <p className="text-gray-500 dark:text-gray-400 leading-7">المصحف الشريف · التفسير الميسر · الترجمة الإنجليزية · تلاوة الشيخ ياسر الدوسري</p>
+              <div className="bg-emerald-100 dark:bg-emerald-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-emerald-600 dark:text-emerald-400">📖</span>
+                </div>
+              <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-400 mb-2">القرآن الكريم</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">تلاوة، تفسير، واستماع</p>
+            </button>
+            
+            {/* كارت التحفيظ */}
+            <button 
+              onClick={handleOpenHifz}
+              className="group bg-white dark:bg-gray-800 border-2 border-indigo-200 dark:border-indigo-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
+            >
+              <div className="bg-indigo-100 dark:bg-indigo-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="text-4xl text-indigo-600 dark:text-indigo-400">🎙️</span>
+              </div>
+              <h2 className="text-xl font-bold text-indigo-700 dark:text-indigo-400 mb-2">التحفيظ</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">تسميع صوتي تفاعلي</p>
             </button>
 
             {/* كارت الأذكار والأدعية */}
@@ -902,9 +1235,11 @@ export default function Home() {
               onClick={() => setActiveSection('adhkar')}
               className="group bg-white dark:bg-gray-800 border-2 border-amber-200 dark:border-amber-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
             >
-              <span className="text-6xl block mb-6 group-hover:scale-110 transition-transform duration-300">📿</span>
-              <h2 className="text-2xl font-bold text-amber-700 dark:text-amber-400 mb-3">الأذكار والأدعية</h2>
-              <p className="text-gray-500 dark:text-gray-400 leading-7 text-sm">حصن المسلم · أذكار الصباح والمساء · عداد التسبيح · أدعية يومية</p>
+              <div className="bg-amber-100 dark:bg-amber-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-amber-600 dark:text-amber-400">📿</span>
+                </div>
+              <h2 className="text-xl font-bold text-amber-700 dark:text-amber-400 mb-2">الأذكار</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">حصن المسلم وعداد التسبيح</p>
             </button>
 
             {/* كارت الأحكام والفتاوى */}
@@ -912,9 +1247,11 @@ export default function Home() {
               onClick={() => setActiveSection('fatawa')}
               className="group bg-white dark:bg-gray-800 border-2 border-sky-200 dark:border-sky-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
             >
-              <span className="text-6xl block mb-6 group-hover:scale-110 transition-transform duration-300">⚖️</span>
-              <h2 className="text-2xl font-bold text-sky-700 dark:text-sky-400 mb-3">الأحكام والفتاوى</h2>
-              <p className="text-gray-500 dark:text-gray-400 leading-7 text-sm">أحكام دينية في الحياة · الحلال والحرام · العبادات · المعاملات المالية</p>
+              <div className="bg-sky-100 dark:bg-sky-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-sky-600 dark:text-sky-400">⚖️</span>
+                </div>
+              <h2 className="text-xl font-bold text-sky-700 dark:text-sky-400 mb-2">الفتاوى</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">أحكام دينية ومسائل يومية</p>
             </button>
           </div>
 
@@ -933,6 +1270,24 @@ export default function Home() {
         </div>
       </main>
     );
+  }
+
+  // --------------------------------------------------------
+  // Hifz Section
+  // --------------------------------------------------------
+  if (activeSection === 'hifz') {
+      return (
+        <main className={`p-6 md:p-8 min-h-screen text-right bg-gradient-to-br from-indigo-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`} dir="rtl">
+           <div className="max-w-7xl mx-auto mb-12">
+              <div className="flex justify-between items-center mb-6">
+                  <button onClick={goToLanding} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-bold transition">🏠 الرئيسية</button>
+                  <h1 className="text-3xl font-bold text-indigo-700 dark:text-indigo-400">🎙️ التحفيظ التفاعلي</h1>
+                  <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-bold transition">{theme === 'dark' ? '🌙' : '☀️'}</button>
+              </div>
+              {renderHifzSection()}
+           </div>
+        </main>
+      );
   }
 
   // --------------------------------------------------------
