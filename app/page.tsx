@@ -127,6 +127,16 @@ export default function Home() {
     }
   }, []);
 
+  // تحرير السورة المسموعة إذا تم تغيير الصفحة والصوت متوقف
+  useEffect(() => {
+    if (currentPage !== null) {
+      const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
+      if (!audioEl || audioEl.paused) {
+        setPlayingAudioSurah(null);
+      }
+    }
+  }, [currentPage]);
+
   // تحديث عنوان التبويبة بناءً على القسم النشط
   useEffect(() => {
     let title = "تفيُّؤ";
@@ -690,6 +700,7 @@ export default function Home() {
                   </div>
                   <div className="flex-1 w-full flex items-center justify-between gap-4">
                     <audio
+                      id="main-quran-audio"
                       controls
                       key={`${selectedReciter.id}-${activeAudioSurah}`}
                       preload="auto"
@@ -698,6 +709,15 @@ export default function Home() {
                         const audios = document.getElementsByTagName('audio');
                         for (let i = 0; i < audios.length; i++) {
                           if (audios[i] !== e.target) audios[i].pause();
+                        }
+                      }}
+                      onEnded={() => {
+                        if (activeAudioSurah && activeAudioSurah < 114) {
+                          setPlayingAudioSurah(activeAudioSurah + 1);
+                          setTimeout(() => {
+                            const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
+                            if (audioEl) audioEl.play();
+                          }, 100);
                         }
                       }}
                       src={`${selectedReciter.url}/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
