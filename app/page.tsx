@@ -921,25 +921,37 @@ export default function Home() {
         let uText = uAyah.text;
         let cText = cAyah.text.replace(/\uFEFF/g, ''); // إزالة العلامات المخفية
         
-        // إزالة البسملة إذا لم تكن الفاتحة
+        // إزالة البسملة باستخدام تطبيع الكلمات لتجنب مشاكل التشكيل
         if (uAyah.numberInSurah === 1 && uAyah.surah.number !== 1 && uAyah.surah.number !== 9) {
-           uText = uText.replace('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ', '').trim();
-           cText = cText.replace('بسم الله الرحمن الرحيم', '').trim();
+           const cParts = cText.trim().split(/\s+/);
+           if (cParts.length >= 4) {
+             const first4Norm = cParts.slice(0, 4).map(normalizeArabicText).join(' ');
+             if (first4Norm === 'بسم الله الرحمن الرحيم') {
+               cText = cParts.slice(4).join(' ');
+               const uParts = uText.trim().split(/\s+/);
+               // نحذف أول 4 كلمات من العثماني (نفس عدد كلمات البسملة)
+               uText = uParts.slice(4).join(' ');
+             }
+           }
         }
         
         const uWords = uText.split(' ').filter((w: string) => w.trim() !== '');
         const cWords = cText.split(' ').filter((w: string) => w.trim() !== '');
         
         for (let j = 0; j < uWords.length; j++) {
-           wordsArray.push({
-             original: uWords[j],
-             normalized: normalizeArabicText(cWords[j] || uWords[j]),
-             ayahNumber: uAyah.number,
-             ayahNumberInSurah: uAyah.numberInSurah,
-             surah: uAyah.surah,
-             match: false,
-             isHint: false
-           });
+           const norm = normalizeArabicText(cWords[j] || uWords[j]);
+           // نتجاهل الرموز الوقفية التي ليس لها نطق (إذا كان الكلمة المطبّعة فارغة)
+           if (norm.length > 0) {
+             wordsArray.push({
+               original: uWords[j],
+               normalized: norm,
+               ayahNumber: uAyah.number,
+               ayahNumberInSurah: uAyah.numberInSurah,
+               surah: uAyah.surah,
+               match: false,
+               isHint: false
+             });
+           }
         }
       }
       
