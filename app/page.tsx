@@ -209,6 +209,16 @@ export default function Home() {
   const [isLoadingPrayer, setIsLoadingPrayer] = useState(false);
   const [prayerError, setPrayerError] = useState<string | null>(null);
 
+  // Qibla State
+  const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
+  const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
+  const [showQibla, setShowQibla] = useState(false);
+
+  // Daily Streak and Hijri Date State
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [hijriDate, setHijriDate] = useState<string>('');
+
   // جلب قائمة السور والأذكار ومعرفة الصفحة المحفوظة والوضع الداكن والقارئ المفضل وتتبع الختمة والمفضلة عند فتح الموقع
   useEffect(() => {
     const savedReciter = localStorage.getItem('reciter_id');
@@ -239,17 +249,14 @@ export default function Home() {
       .then(response => setSurahs(response.data.data))
       .catch(error => console.error(error));
 
-    // جلب بيانات الأذكار من حصن المسلم
     axios.get('https://raw.githubusercontent.com/rn0x/Adhkar-json/main/adhkar.json')
       .then(response => setAdhkarData(response.data))
       .catch(error => console.error(error));
 
-    // جلب بيانات الفتاوى والأحكام
     axios.get('/data/fatawa.json')
       .then(response => setFatawaData(response.data))
       .catch(error => console.error('Error loading fatawa', error));
 
-    // جلب معلومات السور (سبب النزول ونبذة)
     axios.get('/data/surah_info.json')
       .then(response => setSurahInfoData(response.data))
       .catch(error => console.error('Error loading surah info', error));
@@ -259,7 +266,6 @@ export default function Home() {
       setSavedPage(parseInt(saved));
     }
 
-    // تحميل تفضيل المظهر من localStorage وتطبيقه
     try {
       const savedTheme = localStorage.getItem('quran_theme') || 'light';
       setTheme(savedTheme);
@@ -267,6 +273,47 @@ export default function Home() {
     } catch (e) {
       console.error(e);
     }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const lastVisit = localStorage.getItem('quran_last_visit');
+      const currentStreak = parseInt(localStorage.getItem('quran_streak') || '0');
+      const today = new Date().toDateString();
+      
+      if (lastVisit) {
+        if (lastVisit === today) {
+          setDailyStreak(currentStreak || 1);
+        } else {
+          const lastVisitDate = new Date(lastVisit);
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          
+          if (lastVisitDate.toDateString() === yesterday.toDateString()) {
+            setDailyStreak(currentStreak + 1);
+            localStorage.setItem('quran_streak', (currentStreak + 1).toString());
+          } else {
+            setDailyStreak(1);
+            localStorage.setItem('quran_streak', '1');
+          }
+        }
+      } else {
+        setDailyStreak(1);
+        localStorage.setItem('quran_streak', '1');
+      }
+      localStorage.setItem('quran_last_visit', today);
+    } catch(e) { console.error(e) }
+
+    const date = new Date();
+    const formattedDate = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
+    axios.get(`https://api.aladhan.com/v1/gToH/${formattedDate}`)
+      .then(res => {
+        if (res.data && res.data.data && res.data.data.hijri) {
+          const h = res.data.data.hijri;
+          setHijriDate(`${h.day} ${h.month.ar} ${h.year} هـ`);
+        }
+      })
+      .catch(console.error);
   }, []);
 
   // ضبط عنوان المتصفح بناء على الصفحة الحالية لتسهيل الحفظ
@@ -1700,6 +1747,23 @@ export default function Home() {
           <h1 className="text-5xl md:text-7xl font-bold text-emerald-700 dark:text-emerald-400 mb-2 leading-tight font-quran">تَفَيُّؤ</h1>
           <p className="text-base md:text-lg text-emerald-600/70 dark:text-emerald-500/70 mb-1 font-quran">﷽</p>
           <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 mb-4">تطبيقك الإسلامي الشامل</p>
+          
+          {/* Hijri Date and Streak Banner */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 text-sm font-bold animate-fade-in">
+            {hijriDate && (
+              <div className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 px-4 py-2 rounded-full flex items-center gap-2 border border-emerald-200 dark:border-emerald-700 shadow-sm">
+                <span>🌙</span>
+                {hijriDate}
+              </div>
+            )}
+            {dailyStreak > 0 && (
+              <div className="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 px-4 py-2 rounded-full flex items-center gap-2 border border-amber-200 dark:border-amber-700 shadow-sm" title="أيام الدخول المتتالية">
+                <span>🔥</span>
+                الورد اليومي: {dailyStreak} يوم
+              </div>
+            )}
+          </div>
+
           <button onClick={cycleTheme} className="mb-10 inline-flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-300 px-5 py-2.5 rounded-full text-sm font-bold shadow-sm border border-gray-200 dark:border-gray-700 transition hover:shadow-md">
             {theme === 'dark' ? '🌙 الوضع الداكن' : theme === 'sepia' ? '📜 الوضع الكلاسيكي' : '☀️ الوضع الفاتح'}
           </button>
