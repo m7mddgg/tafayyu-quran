@@ -1875,58 +1875,76 @@ export default function Home() {
 
       {/* عرض قائمة السور عند عدم وجود بحث نشط */}
       {!hasSearched && (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-        {surahs.map((surah: any) => (
-          <div key={surah.number} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 rounded-xl shadow-sm flex flex-col justify-between hover:shadow-md transition">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">سورة {surah.name.replace('سُورَةُ ', '')}</h2>
-                <span className="text-sm bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">
-                  آياتها: {surah.numberOfAyahs}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <button 
-                onClick={() => setSelectedSurah(surah)}
-                className="w-full mb-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold py-2 rounded-lg transition"
-              >
-                معلومات وقراءة السورة
-              </button>
-
-              <div>
-                <div className="flex items-center gap-2 mt-4 mb-2">
-                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400">القراءة بصوت:</span>
-                  <select
-                    value={selectedReciter.id}
-                    onChange={(e) => handleReciterChange(e.target.value)}
-                    className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded p-1 text-xs outline-none text-gray-700 dark:text-gray-300"
-                  >
-                    {RECITERS.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <audio
-                  controls
-                  preload="none"
-                  className="w-full"
-                  onPlay={(e) => {
-                    const audios = document.getElementsByTagName('audio');
-                    for (let i = 0; i < audios.length; i++) {
-                      if (audios[i] !== e.target) audios[i].pause();
-                    }
-                  }}
-                  src={`${selectedReciter.url}/${String(surah.number).padStart(3, '0')}.mp3`}
-                >
-                  متصفحك لا يدعم تشغيل الصوت.
-                </audio>
-              </div>
-            </div>
+        <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-emerald-100 dark:border-gray-700">
+          
+          <div className="bg-emerald-600 text-white p-4 text-center font-bold text-xl md:text-2xl flex items-center justify-center gap-4">
+            <span>📖 فهرس سور القرآن الكريم</span>
+            <span className="text-sm bg-emerald-700 px-3 py-1 rounded-full">{surahs.length} سورة</span>
           </div>
-        ))}
-      </div>
+          
+          {/* Global Reciter Selection */}
+          <div className="bg-emerald-50 dark:bg-gray-900 p-4 flex justify-between items-center border-b border-emerald-100 dark:border-gray-700">
+            <span className="font-bold text-emerald-800 dark:text-emerald-400">القراءة بصوت:</span>
+            <select
+              value={selectedReciter.id}
+              onChange={(e) => handleReciterChange(e.target.value)}
+              className="bg-white dark:bg-gray-800 border border-emerald-200 dark:border-gray-600 rounded-lg p-2 text-sm outline-none text-gray-700 dark:text-gray-300 font-bold shadow-sm"
+            >
+              {RECITERS.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="divide-y divide-emerald-50 dark:divide-gray-700 max-h-[80vh] overflow-y-auto custom-scrollbar">
+            {surahs.map((surah: any) => (
+              <div key={surah.number} className="flex flex-col md:flex-row items-center p-4 hover:bg-emerald-50/50 dark:hover:bg-gray-700/50 transition duration-200 group">
+                
+                {/* Surah Info */}
+                <div 
+                  className="flex-1 w-full flex items-center gap-4 mb-4 md:mb-0 cursor-pointer" 
+                  onClick={() => setSelectedSurah(surah)}
+                >
+                  <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-emerald-100 dark:bg-gray-700 text-emerald-700 dark:text-emerald-400 font-bold rounded-full border border-emerald-200 dark:border-gray-600 group-hover:scale-105 group-hover:bg-emerald-200 dark:group-hover:bg-gray-600 transition-all">
+                    {surah.number}
+                  </div>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      سورة {surah.name.replace('سُورَةُ ', '')}
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                      {surah.revelationType === 'Meccan' ? 'مكية' : 'مدنية'} • {surah.numberOfAyahs} آية
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-4">
+                  <button 
+                    onClick={() => setSelectedSurah(surah)}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-emerald-800 dark:text-emerald-300 font-bold rounded-full transition flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <span>📖</span> قراءة
+                  </button>
+                  <div className="w-full sm:w-64 bg-gray-50 dark:bg-gray-900 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <audio
+                      controls
+                      preload="none"
+                      className="w-full h-11"
+                      onPlay={(e) => {
+                        const audios = document.getElementsByTagName('audio');
+                        for (let i = 0; i < audios.length; i++) {
+                          if (audios[i] !== e.target) audios[i].pause();
+                        }
+                      }}
+                      src={`${selectedReciter.url}/${String(surah.number).padStart(3, '0')}.mp3`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* نافذة (Modal) بطاقة تعريف السورة عامة */}
