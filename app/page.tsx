@@ -1762,6 +1762,81 @@ export default function Home() {
   }
 
   // --------------------------------------------------------
+  // قسم السبحة الإلكترونية
+  // --------------------------------------------------------
+  if (activeSection === 'tasbeeh') {
+    const handleTasbeehClick = () => {
+      if (window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(50);
+      }
+      setTasbeehCount(prev => prev + 1);
+    };
+
+    const handleReset = () => {
+      if (window.confirm("هل أنت متأكد من تصفير العداد؟")) {
+        setTasbeehCount(0);
+      }
+    };
+
+    return (
+      <main className={`p-6 md:p-8 min-h-screen flex flex-col bg-gradient-to-br from-fuchsia-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`} dir="rtl">
+        <div className="max-w-2xl mx-auto w-full flex-grow flex flex-col">
+          {/* شريط التحكم */}
+          <div className="flex flex-wrap justify-between items-center mb-12 gap-3 bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl backdrop-blur-sm border border-fuchsia-100 dark:border-fuchsia-900">
+            <button onClick={goToLanding} className="bg-fuchsia-100 dark:bg-fuchsia-900 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-200 px-5 py-2.5 rounded-xl font-bold transition flex items-center gap-2">
+              <span>🏠</span> العودة للرئيسية
+            </button>
+            <h1 className="text-3xl md:text-4xl font-bold text-fuchsia-700 dark:text-fuchsia-400">السبحة الإلكترونية</h1>
+            <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-xl font-bold transition">
+              {theme === 'dark' ? '💡' : theme === 'sepia' ? '🌙' : '📜'}
+            </button>
+          </div>
+
+          <div className="flex-grow flex flex-col items-center justify-center pb-20">
+            {/* اختيار الذكر */}
+            <div className="mb-12 w-full relative group">
+              <select 
+                value={tasbeehText}
+                onChange={(e) => { setTasbeehText(e.target.value); setTasbeehCount(0); }}
+                className="appearance-none w-full bg-white dark:bg-gray-800 border-2 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-300 text-3xl md:text-5xl leading-relaxed font-bold font-quran text-center p-6 rounded-3xl shadow-sm focus:outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100 dark:focus:ring-fuchsia-900/50 transition cursor-pointer"
+              >
+                {tasbeehOptions.map((opt, i) => (
+                  <option key={i} value={opt}>{opt}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 left-6 flex items-center px-2 text-fuchsia-400 group-hover:text-fuchsia-600 transition">
+                <svg className="fill-current h-8 w-8" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+              </div>
+            </div>
+
+            {/* العداد والزرار */}
+            <div className="relative w-72 h-72 md:w-96 md:h-96 mx-auto mt-4">
+              {/* زر التصفير */}
+              <button 
+                onClick={handleReset}
+                className="absolute top-2 right-2 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-900/50 hover:bg-red-500 hover:text-white hover:border-red-500 text-red-500 dark:text-red-400 w-16 h-16 rounded-full flex items-center justify-center font-bold text-2xl transition-all shadow-lg z-10 hover:rotate-180"
+                title="تصفير العداد"
+              >
+                🔄
+              </button>
+              
+              {/* الدائرة الرئيسية للسبحة */}
+              <button
+                onClick={handleTasbeehClick}
+                className="w-full h-full bg-gradient-to-br from-fuchsia-500 to-purple-600 active:scale-95 active:shadow-inner hover:shadow-2xl transition-all duration-75 rounded-[40%] shadow-xl flex flex-col items-center justify-center text-white select-none border-[12px] border-fuchsia-100 dark:border-gray-800 cursor-pointer"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <span className="text-8xl md:text-[10rem] font-bold font-mono tracking-widest drop-shadow-md mb-4">{tasbeehCount}</span>
+                <span className="text-2xl font-bold opacity-90 uppercase tracking-widest bg-black/15 px-8 py-3 rounded-full">اضغط للتسبيح</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // --------------------------------------------------------
   // قسم الأحكام والفتاوى الدينية
   // --------------------------------------------------------
   if (activeSection === 'fatawa') {
