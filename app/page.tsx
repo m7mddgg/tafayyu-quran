@@ -109,6 +109,8 @@ export default function Home() {
   const hifzWordsRef = useRef<any[]>([]);
   const hifzIdxRef = useRef<number>(0);
   const hifzCompletedSurahsRef = useRef<number[]>([]);
+  const currentResultIndexRef = useRef<number>(0);
+  const matchedInCurrentResultRef = useRef<number>(0);
 
   // Prayer Times State
   const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
@@ -779,6 +781,8 @@ export default function Home() {
       setIsHifzListening(true);
       setHifzWrongWord(false);
       setHifzNextSurah(null);
+      currentResultIndexRef.current = 0;
+      matchedInCurrentResultRef.current = 0;
     };
 
     recognition.onend = () => {
