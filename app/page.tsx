@@ -47,6 +47,67 @@ const RECITERS = [
   { id: 'nuainy', name: 'أحمد نعينع', url: 'https://server11.mp3quran.net/ahmad_nu' },
 ];
 
+const PrayerCountdown = ({ prayerTimes }: { prayerTimes: any }) => {
+  const [nextPrayer, setNextPrayer] = useState<{ name: string; remaining: string } | null>(null);
+
+  useEffect(() => {
+    if (!prayerTimes) return;
+    
+    const calculate = () => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const currentSeconds = now.getSeconds();
+      
+      const timings = [
+        { name: 'الفجر', time: prayerTimes.timings.Fajr },
+        { name: 'الشروق', time: prayerTimes.timings.Sunrise },
+        { name: 'الظهر', time: prayerTimes.timings.Dhuhr },
+        { name: 'العصر', time: prayerTimes.timings.Asr },
+        { name: 'المغرب', time: prayerTimes.timings.Maghrib },
+        { name: 'العشاء', time: prayerTimes.timings.Isha },
+      ];
+
+      let next = null;
+      for (const p of timings) {
+        const cleanTime = p.time.split(' ')[0];
+        const [h, m] = cleanTime.split(':').map(Number);
+        const pMinutes = h * 60 + m;
+        if (pMinutes > currentMinutes || (pMinutes === currentMinutes && currentSeconds === 0)) {
+          next = { ...p, pMinutes };
+          break;
+        }
+      }
+
+      if (!next) {
+        const cleanTime = timings[0].time.split(' ')[0];
+        const [h, m] = cleanTime.split(':').map(Number);
+        next = { ...timings[0], pMinutes: h * 60 + m + 24 * 60 };
+      }
+
+      const diffSeconds = (next.pMinutes * 60) - (currentMinutes * 60 + currentSeconds);
+      const hrs = Math.floor(diffSeconds / 3600);
+      const mins = Math.floor((diffSeconds % 3600) / 60);
+      const secs = diffSeconds % 60;
+
+      const remainingStr = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      setNextPrayer({ name: next.name, remaining: remainingStr });
+    };
+
+    calculate();
+    const interval = setInterval(calculate, 1000);
+    return () => clearInterval(interval);
+  }, [prayerTimes]);
+
+  if (!nextPrayer) return null;
+
+  return (
+    <div className="bg-gradient-to-l from-teal-600 to-emerald-500 text-white p-6 rounded-3xl shadow-xl mb-8 flex flex-col items-center justify-center transform transition hover:scale-[1.01]">
+      <p className="text-xl md:text-2xl opacity-90 mb-2 font-semibold text-teal-50">متبقي على صلاة {nextPrayer.name}</p>
+      <p className="text-5xl md:text-7xl font-bold font-mono tracking-widest dir-ltr drop-shadow-md">{nextPrayer.remaining}</p>
+    </div>
+  );
+};
+
 export default function Home() {
   const [surahs, setSurahs] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState<number | null>(null);
@@ -1185,6 +1246,9 @@ export default function Home() {
 
           {prayerTimes && !isLoadingPrayer && !prayerError && (
             <div className="space-y-6">
+              
+              <PrayerCountdown prayerTimes={prayerTimes} />
+
               <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-indigo-100 dark:border-indigo-900 text-center">
                 <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">{prayerTimes.date.hijri.weekday.ar}</h3>
                 <p className="text-lg text-indigo-600 dark:text-indigo-400 font-semibold mb-1">
