@@ -787,7 +787,12 @@ export default function Home() {
         const idx = hifzIdxRef.current;
         const words = hifzWordsRef.current;
         if (idx < words.length) {
-          try { recognition.start(); } catch(e) {}
+          try { 
+            recognition.start(); 
+          } catch(e) {
+            // يفشل إعادة التشغيل التلقائي غالباً في متصفحات الموبايل (iOS)
+            setIsHifzListening(false);
+          }
         } else {
           setIsHifzListening(false);
         }
@@ -797,8 +802,13 @@ export default function Home() {
     };
 
     recognition.onerror = (e: any) => {
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      if (e.error === 'not-allowed') {
+        alert('يرجى السماح باستخدام الميكروفون من إعدادات المتصفح.');
+        isIntentionalStopRef.current = true;
+        setIsHifzListening(false);
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
         console.error('Speech Rec Error:', e.error);
+        setIsHifzListening(false);
       }
     };
 
