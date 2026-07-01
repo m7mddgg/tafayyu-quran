@@ -1766,7 +1766,7 @@ export default function Home() {
               🏠 الرئيسية
             </button>
             <h1 className="text-3xl md:text-5xl font-bold text-rose-700 dark:text-rose-400 font-quran text-center leading-normal">
-              السيرة النبوية العطرة <br/> <span className="text-xl md:text-2xl text-rose-600/70 dark:text-rose-500/70">على صاحبها أفضل الصلاة والسلام</span>
+              السيرة النبوية العطرة <br/> <span className="text-xl md:text-2xl text-rose-600/70 dark:text-rose-500/70">عليه أفضل الصلاة والسلام</span>
             </h1>
             <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-bold transition">
               {theme === 'dark' ? '🌙' : theme === 'sepia' ? '📜' : '☀️'}
@@ -1774,8 +1774,6 @@ export default function Home() {
           </div>
 
           <div className="space-y-12 pb-20 relative">
-            {/* خط الزمن في الخلفية (يظهر في الشاشات الكبيرة) */}
-            <div className="hidden lg:block absolute right-1/2 top-0 bottom-0 w-1 bg-rose-200 dark:bg-rose-800/50 rounded-full"></div>
 
             {seerahData.map((stage, index) => (
               <div key={stage.id} className="relative z-10">
