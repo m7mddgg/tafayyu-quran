@@ -777,78 +777,95 @@ export default function Home() {
     };
 
     recognition.onresult = (event: any) => {
-      // نعالج فقط النتائج النهائية
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (!event.results[i].isFinal) continue;
 
-        // نجمع كل البدائل
-        const allTranscripts: string[] = [];
+        const currentWords = hifzWordsRef.current;
+        let currentIdx = hifzIdxRef.current;
+
+        if (currentIdx >= currentWords.length) break;
+
+        // ===== اختيار أفضل بديل (البديل اللي بيطابق أكتر كلمات) =====
+        let bestWords: string[] = [];
+        let bestMatchCount = -1;
+
         for (let j = 0; j < event.results[i].length; j++) {
-          allTranscripts.push(event.results[i][j].transcript);
-        }
+          const words = normalizeArabicText(event.results[i][j].transcript)
+            .split(' ').filter((w: string) => w.length > 0);
 
-        // نجرب كل بديل ونطابق كلمة كلمة
-        let stopped = false;
-        for (const transcript of allTranscripts) {
-          const spokenWords = normalizeArabicText(transcript).split(' ').filter(w => w.length > 0);
-
-          for (const spokenWord of spokenWords) {
-            const currentIdx = hifzIdxRef.current;
-            const currentWords = hifzWordsRef.current;
-
-            if (currentIdx >= currentWords.length) break;
-
-            if (spokenWord === currentWords[currentIdx].normalized) {
-              // صح! أخضر وتقدم
-              setHifzWords(prev => {
-                const newWords = [...prev];
-                newWords[currentIdx].match = true;
-                newWords[currentIdx].isWrong = false;
-                newWords[currentIdx].isHint = false;
-                hifzWordsRef.current = newWords;
-                return newWords;
-              });
-
-              const nextIdx = currentIdx + 1;
-              hifzIdxRef.current = nextIdx;
-              setHifzExpectedWordIndex(nextIdx);
-
-              // تحقق إتمام سورة
-              const prevSurahNum = currentWords[currentIdx].surah?.number;
-              const isPageDone = nextIdx >= currentWords.length;
-              const surahChanged = !isPageDone && currentWords[nextIdx].surah?.number !== prevSurahNum;
-
-              if ((isPageDone || surahChanged) && !hifzCompletedSurahsRef.current.includes(prevSurahNum)) {
-                hifzCompletedSurahsRef.current = [...hifzCompletedSurahsRef.current, prevSurahNum];
-                setHifzCompletedSurahs([...hifzCompletedSurahsRef.current]);
-                if (surahChanged) {
-                  const nextSurahName = currentWords[nextIdx].surah?.name || '';
-                  setHifzNextSurah(nextSurahName);
-                  // أخفي الإعلان بعد 3 ثواني
-                  setTimeout(() => setHifzNextSurah(null), 3000);
-                }
-              }
-
-            } else {
-              // غلط! أحمر وأوقف
-              setHifzWords(prev => {
-                const newWords = [...prev];
-                newWords[currentIdx].isWrong = true;
-                hifzWordsRef.current = newWords;
-                return newWords;
-              });
-              setHifzWrongWord(true);
-              isIntentionalStopRef.current = true;
-              try { recognition.stop(); } catch(e) {}
-              setIsHifzListening(false);
-              stopped = true;
-              break;
-            }
+          // نعد كم كلمة متتالية تطابق من الموضع الحالي
+          let count = 0;
+          for (const w of words) {
+            const idx = currentIdx + count;
+            if (idx >= currentWords.length) break;
+            if (w === currentWords[idx].normalized) count++;
+            else break;
           }
-          if (stopped) break;
+
+          if (count > bestMatchCount) {
+            bestMatchCount = count;
+            bestWords = words;
+          }
         }
+
+        // ===== نشتغل على أفضل بديل بس =====
+        let stopped = false;
+        for (const spokenWord of bestWords) {
+          if (currentIdx >= currentWords.length) break;
+
+          if (spokenWord === currentWords[currentIdx].normalized) {
+            // صح! أخضر وتقدم
+            const idx = currentIdx;
+            setHifzWords(prev => {
+              const newWords = [...prev];
+              newWords[idx].match = true;
+              newWords[idx].isWrong = false;
+              newWords[idx].isHint = false;
+              hifzWordsRef.current = newWords;
+              return newWords;
+            });
+
+            const nextIdx = currentIdx + 1;
+            currentIdx = nextIdx;
+            hifzIdxRef.current = nextIdx;
+            setHifzExpectedWordIndex(nextIdx);
+
+            // تحقق إتمام سورة
+            const prevSurahNum = currentWords[idx].surah?.number;
+            const isPageDone = nextIdx >= currentWords.length;
+            const surahChanged = !isPageDone && currentWords[nextIdx].surah?.number !== prevSurahNum;
+
+            if ((isPageDone || surahChanged) && !hifzCompletedSurahsRef.current.includes(prevSurahNum)) {
+              hifzCompletedSurahsRef.current = [...hifzCompletedSurahsRef.current, prevSurahNum];
+              setHifzCompletedSurahs([...hifzCompletedSurahsRef.current]);
+              if (surahChanged) {
+                const nextSurahName = currentWords[nextIdx].surah?.name || '';
+                setHifzNextSurah(nextSurahName);
+                setTimeout(() => setHifzNextSurah(null), 3000);
+              }
+            }
+
+          } else {
+            // غلط! أحمر وأوقف
+            const idx = currentIdx;
+            setHifzWords(prev => {
+              const newWords = [...prev];
+              newWords[idx].isWrong = true;
+              hifzWordsRef.current = newWords;
+              return newWords;
+            });
+            setHifzWrongWord(true);
+            isIntentionalStopRef.current = true;
+            try { recognition.stop(); } catch(e) {}
+            setIsHifzListening(false);
+            stopped = true;
+            break;
+          }
+        }
+        if (stopped) break;
       }
     };
+
 
     recognitionRef.current = recognition;
     isIntentionalStopRef.current = false;
@@ -858,6 +875,7 @@ export default function Home() {
       console.log('Already started');
     }
   };
+
 
   const startHifzSession = async (pageNumber: number) => {
     setIsLoadingPage(true);
