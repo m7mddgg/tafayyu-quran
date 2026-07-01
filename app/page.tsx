@@ -175,14 +175,19 @@ export default function Home() {
   const currentResultIndexRef = useRef<number>(0);
   const matchedInCurrentResultRef = useRef<number>(0);
 
+  // Bookmarks State
+  const [bookmarks, setBookmarks] = useState<any[]>([]);
+
+  // Tasbeeh State
+  const [tasbeehCount, setTasbeehCount] = useState<number>(0);
+  const [tasbeehText, setTasbeehText] = useState<string>("سُبْحَانَ اللَّهِ");
+  const tasbeehOptions = ["سُبْحَانَ اللَّهِ", "الْحَمْدُ لِلَّهِ", "لَا إِلَهَ إِلَّا اللَّهُ", "اللَّهُ أَكْبَرُ", "أَسْتَغْفِرُ اللَّهَ", "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ", "حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ"];
+
   // Prayer Times State
   const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
   const [prayerLocation, setPrayerLocation] = useState<string | null>(null);
   const [isLoadingPrayer, setIsLoadingPrayer] = useState(false);
   const [prayerError, setPrayerError] = useState<string | null>(null);
-
-  // Bookmarks State
-  const [bookmarks, setBookmarks] = useState<any[]>([]);
 
   // جلب قائمة السور والأذكار ومعرفة الصفحة المحفوظة والوضع الداكن والقارئ المفضل وتتبع الختمة والمفضلة عند فتح الموقع
   useEffect(() => {
@@ -1596,6 +1601,18 @@ export default function Home() {
                 </div>
               <h2 className="text-xl font-bold text-teal-700 dark:text-teal-400 mb-2">مواقيت الصلاة</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm">مواقيت دقيقة حسب موقعك</p>
+            </button>
+
+            {/* كارت السبحة الإلكترونية */}
+            <button
+              onClick={() => setActiveSection('tasbeeh')}
+              className="group bg-white dark:bg-gray-800 border-2 border-fuchsia-200 dark:border-fuchsia-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
+            >
+              <div className="bg-fuchsia-100 dark:bg-fuchsia-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-fuchsia-600 dark:text-fuchsia-400">👆</span>
+                </div>
+              <h2 className="text-xl font-bold text-fuchsia-700 dark:text-fuchsia-400 mb-2">السبحة الإلكترونية</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">عداد ذكي مع تفاعل واهتزاز</p>
             </button>
           </div>
 
