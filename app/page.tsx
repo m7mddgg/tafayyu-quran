@@ -145,9 +145,29 @@ export default function Home() {
   const [playingAudioSurah, setPlayingAudioSurah] = useState<number | null>(null);
   const [selectedReciter, setSelectedReciter] = useState(RECITERS[0]);
 
+  // Interactive Mode State
+  const [isInteractiveMode, setIsInteractiveMode] = useState(false);
+  const [interactiveReciter, setInteractiveReciter] = useState('ar.alafasy');
+  const [interactiveAyahs, setInteractiveAyahs] = useState<any[]>([]);
+  const [currentAyahIndex, setCurrentAyahIndex] = useState<number>(-1);
+  const [isPlayingInteractive, setIsPlayingInteractive] = useState(false);
+  const interactiveAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const INTERACTIVE_RECITERS = [
+    { id: 'ar.alafasy', name: 'مشاري العفاسي' },
+    { id: 'ar.abdulbasitmurattal', name: 'عبد الباسط عبد الصمد' },
+    { id: 'ar.minshawi', name: 'محمد صديق المنشاوي' },
+    { id: 'ar.sudais', name: 'عبد الرحمن السديس' },
+    { id: 'ar.husary', name: 'محمود خليل الحصري' }
+  ];
+
   // Touch Swipe State
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   // Khatmah State
   const [khatmahGoal, setKhatmahGoal] = useState<number | null>(null);
@@ -249,6 +269,84 @@ export default function Home() {
     }
   }, []);
 
+  // ضبط عنوان المتصفح بناء على الصفحة الحالية لتسهيل الحفظ
+  useEffect(() => {
+    let title = "تفيّؤ";
+    if (currentPage !== null) {
+      title = `تفيّؤ | المصحف - صفحة ${currentPage}`;
+    } else if (activeSection === 'quran') {
+      title = "تفيّؤ | المصحف الشريف";
+    } else if (activeSection === 'adhkar') {
+      title = "تفيّؤ | الأذكار والمأثورات";
+    } else if (activeSection === 'fatawa') {
+      title = "تفيّؤ | الفتاوى والأحكام";
+    }
+    document.title = title;
+  }, [currentPage, activeSection]);
+
+  // جلب الصوت التفاعلي عند تفعيل الوضع أو تغيير الصفحة
+  useEffect(() => {
+    if (isInteractiveMode && currentPage) {
+      axios.get(`https://api.alquran.cloud/v1/page/${currentPage}/${interactiveReciter}`)
+        .then(res => {
+          setInteractiveAyahs(res.data.data.ayahs);
+          if (isPlayingInteractive) {
+            setCurrentAyahIndex(0); // Auto-start the new page
+          } else {
+            setCurrentAyahIndex(-1);
+          }
+        })
+        .catch(err => console.error(err));
+    } else {
+      setInteractiveAyahs([]);
+      setCurrentAyahIndex(-1);
+      setIsPlayingInteractive(false);
+    }
+  }, [currentPage, interactiveReciter, isInteractiveMode]);
+
+  useEffect(() => {
+    if (interactiveAudioRef.current && isPlayingInteractive && currentAyahIndex >= 0 && interactiveAyahs[currentAyahIndex]) {
+      // Pause main audio if playing
+      const mainAudio = document.getElementById('main-quran-audio') as HTMLAudioElement;
+      if (mainAudio && !mainAudio.paused) mainAudio.pause();
+
+      interactiveAudioRef.current.play().catch(e => console.error("Audio play error", e));
+      
+      // Auto-scroll
+      setTimeout(() => {
+        const ayahElement = document.getElementById(`ayah-${interactiveAyahs[currentAyahIndex]?.number}`);
+        if (ayahElement) {
+          ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [currentAyahIndex, isPlayingInteractive, interactiveAyahs]);
+
+  const handleInteractivePlayPause = () => {
+    if (isPlayingInteractive) {
+      interactiveAudioRef.current?.pause();
+      setIsPlayingInteractive(false);
+    } else {
+      if (currentAyahIndex === -1 && interactiveAyahs.length > 0) {
+        setCurrentAyahIndex(0);
+      }
+      setIsPlayingInteractive(true);
+    }
+  };
+
+  const handleInteractiveEnded = () => {
+    if (currentAyahIndex < interactiveAyahs.length - 1) {
+      setCurrentAyahIndex(prev => prev + 1);
+    } else {
+      // Auto flip page
+      if (currentPage && currentPage < 604) {
+        loadPage(currentPage + 1);
+      } else {
+        setIsPlayingInteractive(false);
+      }
+    }
+  };
+
   // تحرير السورة المسموعة إذا تم تغيير الصفحة والصوت متوقف
   useEffect(() => {
     if (currentPage !== null) {
@@ -259,20 +357,30 @@ export default function Home() {
     }
   }, [currentPage]);
 
-  // تحديث عنوان التبويبة بناءً على القسم النشط
+  // PWA Install Prompt logic
   useEffect(() => {
-    let title = "تفيُّؤ";
-    if (currentPage !== null) {
-      title = `تفيُّؤ | المصحف - صفحة ${currentPage}`;
-    } else if (activeSection === 'quran') {
-      title = "تفيُّؤ | القرآن الكريم";
-    } else if (activeSection === 'adhkar') {
-      title = "تفيُّؤ | الأذكار والأدعية";
-    } else if (activeSection === 'fatawa') {
-      title = "تفيُّؤ | الأحكام والفتاوى";
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      const hasDismissed = localStorage.getItem('quran_install_dismissed');
+      if (!hasDismissed) {
+        setShowInstallPrompt(true);
+      }
+    };
+    
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallPrompt(false);
     }
-    document.title = title;
-  }, [activeSection, currentPage]);
+    setDeferredPrompt(null);
+  };
 
   const applyTheme = (newTheme: string) => {
     if (typeof document !== 'undefined') {
@@ -1325,49 +1433,97 @@ export default function Home() {
               </div>
             </div>
 
-            {/* مشغل صوت القرآن */}
-            {activeAudioSurah && (
-              <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-600">
+            {/* شريط الصوت */}
+            {(playingAudioSurah || isInteractiveMode) && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 p-3 md:p-4 rounded-t-3xl border-b border-amber-200 dark:border-amber-700/50 transition-all duration-500 max-h-40 overflow-hidden">
                 <div className="flex flex-col md:flex-row items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">🎧 القارئ:</span>
-                    <select
-                      value={selectedReciter.id}
-                      onChange={(e) => handleReciterChange(e.target.value)}
-                      className="bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 rounded p-1 text-sm outline-none text-amber-900 dark:text-amber-100"
-                    >
-                      {RECITERS.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex-1 w-full flex items-center justify-between gap-4">
-                    <audio
-                      id="main-quran-audio"
-                      controls
-                      key={`${selectedReciter.id}-${activeAudioSurah}`}
-                      preload="auto"
-                      className="w-full"
-                      onPlay={(e) => {
-                        const audios = document.getElementsByTagName('audio');
-                        for (let i = 0; i < audios.length; i++) {
-                          if (audios[i] !== e.target) audios[i].pause();
-                        }
-                      }}
-                      onEnded={() => {
-                        if (activeAudioSurah && activeAudioSurah < 114) {
-                          setPlayingAudioSurah(activeAudioSurah + 1);
-                          setTimeout(() => {
-                            const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
-                            if (audioEl) audioEl.play();
-                          }, 100);
-                        }
-                      }}
-                      src={`${selectedReciter.url}/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
-                    >
-                      متصفحك لا يدعم تشغيل الصوت.
-                    </audio>
-                  </div>
+                  
+                  {!isInteractiveMode ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">صوت السورة:</span>
+                        <select
+                          value={selectedReciter.id}
+                          onChange={(e) => handleReciterChange(e.target.value)}
+                          className="bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 rounded p-1 text-sm outline-none text-amber-900 dark:text-amber-100"
+                        >
+                          {RECITERS.map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1 w-full flex items-center justify-between gap-4">
+                        <audio
+                          id="main-quran-audio"
+                          controls
+                          key={`${selectedReciter.id}-${playingAudioSurah}`}
+                          preload="auto"
+                          className="w-full"
+                          onPlay={(e) => {
+                            const audios = document.getElementsByTagName('audio');
+                            for (let i = 0; i < audios.length; i++) {
+                              if (audios[i] !== e.target) audios[i].pause();
+                            }
+                          }}
+                          onEnded={() => {
+                            if (playingAudioSurah && playingAudioSurah < 114) {
+                              setPlayingAudioSurah(playingAudioSurah + 1);
+                              setTimeout(() => {
+                                const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
+                                if (audioEl) audioEl.play();
+                              }, 100);
+                            }
+                          }}
+                          src={`${selectedReciter.url}/${String(playingAudioSurah).padStart(3, '0')}.mp3`}
+                        >
+                          متصفحك لا يدعم تشغيل الصوت.
+                        </audio>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* الوضع التفاعلي (آية بآية) */}
+                      <div className="flex flex-wrap items-center justify-between w-full gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">القارئ:</span>
+                          <select
+                            value={interactiveReciter}
+                            onChange={(e) => {
+                              setInteractiveReciter(e.target.value);
+                              if (isPlayingInteractive) handleInteractivePlayPause();
+                            }}
+                            className="bg-white dark:bg-gray-700 border border-emerald-300 dark:border-emerald-600 rounded p-1 text-sm outline-none text-emerald-900 dark:text-emerald-100"
+                          >
+                            {INTERACTIVE_RECITERS.map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={handleInteractivePlayPause}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold shadow-md transition text-xl"
+                          >
+                            {isPlayingInteractive ? '⏸️' : '▶️'}
+                          </button>
+                          
+                          <div className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                            {currentAyahIndex >= 0 ? `الآية ${interactiveAyahs[currentAyahIndex]?.numberInSurah}` : 'جاهز للتشغيل'}
+                          </div>
+                        </div>
+
+                        <audio
+                          ref={interactiveAudioRef}
+                          src={interactiveAyahs[currentAyahIndex]?.audio || ''}
+                          onEnded={handleInteractiveEnded}
+                          onPause={() => setIsPlayingInteractive(false)}
+                          onPlay={() => setIsPlayingInteractive(true)}
+                          className="hidden"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1404,7 +1560,15 @@ export default function Home() {
           >
             <div className="quran-block">
               {pageAyahs.map((ayah, index) => (
-                <span key={index} className="inline group relative">
+                <span 
+                  key={index} 
+                  id={`ayah-${ayah.number}`}
+                  className={`inline group relative transition-colors duration-300 ${
+                    isInteractiveMode && currentAyahIndex === index 
+                      ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-200 rounded-lg outline outline-2 outline-emerald-300/50 mx-0.5' 
+                      : ''
+                  }`}
+                >
                   {/* أزرار الآية المخفية تظهر عند التمرير */}
                   <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700 rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10 pointer-events-none group-hover:pointer-events-auto">
                     <button onClick={() => toggleBookmark(ayah, 'ayah')} className="text-yellow-500 hover:scale-110 p-1">
@@ -1464,26 +1628,37 @@ export default function Home() {
           </div>
           )}
 
-          {/* أزرار التقليب (السابق والتالي) مع قفز للصفحة */}
+          {/* أزرار التقليب (السابق والتالي) والوضع التفاعلي */}
           <div className="flex flex-col md:flex-row justify-between items-center mt-8 gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={prevPage}
-                disabled={currentPage === 1}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-bold transition disabled:opacity-50"
-              >
-                ➡️ الصفحة السابقة
-              </button>
-              <button
-                onClick={nextPage}
-                disabled={currentPage === 604}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-bold transition disabled:opacity-50"
-              >
-                الصفحة التالية ⬅️
-              </button>
-            </div>
+            <button
+              onClick={prevPage}
+              disabled={currentPage === 1}
+              className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition disabled:opacity-50 shadow-md"
+            >
+              ➡️ الصفحة السابقة
+            </button>
+            
+            <button
+              onClick={() => {
+                setIsInteractiveMode(!isInteractiveMode);
+                if (playingAudioSurah) setPlayingAudioSurah(null);
+              }}
+              className={`w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition shadow-md border-2 ${isInteractiveMode ? 'bg-emerald-100 border-emerald-400 text-emerald-900 dark:bg-emerald-900/50 dark:border-emerald-600 dark:text-emerald-200' : 'bg-white border-emerald-200 text-emerald-800 dark:bg-gray-800 dark:border-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-700'}`}
+            >
+              <span className="text-xl">{isInteractiveMode ? '✨' : '📖'}</span>
+              {isInteractiveMode ? 'القراءة التفاعلية (مفعلة)' : 'القارئ التفاعلي (آية بآية)'}
+            </button>
 
-            <div className="flex items-center gap-2">
+            <button
+              onClick={nextPage}
+              disabled={currentPage === 604}
+              className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition disabled:opacity-50 shadow-md"
+            >
+              الصفحة التالية ⬅️
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 mt-6">
               <label className="text-sm font-bold text-gray-700 dark:text-gray-300">الذهاب إلى الصفحة:</label>
               <input
                 type="number"
@@ -1509,7 +1684,6 @@ export default function Home() {
                 اذهب
               </button>
             </div>
-          </div>
 
         </div>
       </main>
@@ -1529,6 +1703,38 @@ export default function Home() {
           <button onClick={cycleTheme} className="mb-10 inline-flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-300 px-5 py-2.5 rounded-full text-sm font-bold shadow-sm border border-gray-200 dark:border-gray-700 transition hover:shadow-md">
             {theme === 'dark' ? '🌙 الوضع الداكن' : theme === 'sepia' ? '📜 الوضع الكلاسيكي' : '☀️ الوضع الفاتح'}
           </button>
+
+          {/* PWA Install Prompt */}
+          {showInstallPrompt && (
+            <div className="mb-10 p-5 bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-fade-in mx-4 md:mx-0">
+              <div className="flex items-center gap-4">
+                <div className="bg-emerald-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-bold text-2xl shadow-md">
+                  ✨
+                </div>
+                <div className="text-right">
+                  <h3 className="font-bold text-emerald-800 dark:text-emerald-200 text-lg">ثبّت التطبيق على جهازك</h3>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-400">للوصول السريع للمصحف والأذكار في أي وقت وبدون إنترنت</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <button 
+                  onClick={handleInstallClick} 
+                  className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition shadow-md"
+                >
+                  تثبيت الآن
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowInstallPrompt(false);
+                    localStorage.setItem('quran_install_dismissed', 'true');
+                  }} 
+                  className="px-4 py-2.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition font-bold"
+                >
+                  لاحقاً
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* كارت القرآن الكريم */}
