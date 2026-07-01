@@ -1754,6 +1754,63 @@ export default function Home() {
   }
 
   // --------------------------------------------------------
+  // قسم السيرة النبوية العطرة
+  // --------------------------------------------------------
+  if (activeSection === 'seerah') {
+    return (
+      <main className={`p-6 md:p-8 min-h-screen text-right bg-gradient-to-b from-rose-50 to-white dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`}  dir="rtl">
+        <div className="max-w-5xl mx-auto">
+          {/* شريط التحكم */}
+          <div className="flex flex-wrap justify-between items-center mb-10 gap-3">
+            <button onClick={goToLanding} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-bold transition">
+              🏠 الرئيسية
+            </button>
+            <h1 className="text-3xl md:text-5xl font-bold text-rose-700 dark:text-rose-400 font-quran text-center leading-normal">
+              السيرة النبوية العطرة <br/> <span className="text-xl md:text-2xl text-rose-600/70 dark:text-rose-500/70">على صاحبها أفضل الصلاة والسلام</span>
+            </h1>
+            <button onClick={cycleTheme} className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-4 py-2 rounded-lg font-bold transition">
+              {theme === 'dark' ? '🌙' : theme === 'sepia' ? '📜' : '☀️'}
+            </button>
+          </div>
+
+          <div className="space-y-12 pb-20 relative">
+            {/* خط الزمن في الخلفية (يظهر في الشاشات الكبيرة) */}
+            <div className="hidden lg:block absolute right-1/2 top-0 bottom-0 w-1 bg-rose-200 dark:bg-rose-800/50 rounded-full"></div>
+
+            {seerahData.map((stage, index) => (
+              <div key={stage.id} className="relative z-10">
+                
+                <div className="flex flex-col lg:flex-row items-center justify-center mb-6">
+                   <div className="bg-rose-600 dark:bg-rose-700 text-white w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg border-4 border-white dark:border-gray-800 z-20 mb-4 lg:mb-0">
+                     {stage.icon}
+                   </div>
+                   <h2 className="text-2xl md:text-3xl font-bold text-rose-800 dark:text-rose-300 lg:mx-6 bg-rose-100 dark:bg-rose-900/40 px-6 py-2 rounded-full shadow-sm">
+                     {stage.title}
+                   </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {stage.items.map((item, idx) => (
+                    <div key={idx} className="bg-white dark:bg-gray-800 border border-rose-100 dark:border-rose-900/50 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                      <h3 className="text-xl font-bold text-rose-700 dark:text-rose-400 mb-4 pb-2 border-b border-rose-100 dark:border-gray-700">
+                        {item.subtitle}
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300 leading-8 text-lg font-sans">
+                        {item.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      </main>
+    );
+  }
+
+  // --------------------------------------------------------
   // قسم القرآن الكريم - القائمة الرئيسية
   // --------------------------------------------------------
   // تصفية السور المطابقة لاسم البحث محلياً
