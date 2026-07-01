@@ -75,8 +75,11 @@ export default function Home() {
   const [hifzWords, setHifzWords] = useState<any[]>([]);
   const [hifzExpectedWordIndex, setHifzExpectedWordIndex] = useState<number>(0);
   const [isHifzListening, setIsHifzListening] = useState<boolean>(false);
+  const [hifzWrongWord, setHifzWrongWord] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
   const isIntentionalStopRef = useRef<boolean>(false);
+  const hifzWordsRef = useRef<any[]>([]);
+  const hifzIdxRef = useRef<number>(0);
 
   // Prayer Times State
   const [prayerTimes, setPrayerTimes] = useState<any | null>(null);
@@ -240,11 +243,20 @@ export default function Home() {
   const showHifzHint = () => {
     setHifzWords(prev => {
       const newWords = [...prev];
-      if (hifzExpectedWordIndex < newWords.length) {
-        newWords[hifzExpectedWordIndex].isHint = true;
+      const idx = hifzIdxRef.current;
+      if (idx < newWords.length) {
+        // إخفاء الكلمة الخاطئة السابقة إن وجدت
+        for (let i = 0; i < newWords.length; i++) {
+          if (newWords[i].isWrong) newWords[i].isWrong = false;
+        }
+        newWords[idx].isHint = true;
+        hifzWordsRef.current = newWords;
       }
       return newWords;
     });
+    setHifzWrongWord(false);
+    // إعادة تشغيل التسميع بعد التلميح
+    setTimeout(() => startHifzListening(), 300);
   };
 
   const renderHifzSection = () => {
@@ -275,19 +287,40 @@ export default function Home() {
              </button>
           </div>
           
-          <div className="quran-block bg-emerald-50/50 dark:bg-gray-900/50 p-6 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/50 min-h-[300px]">
+          <div className="quran-block bg-emerald-50/50 dark:bg-gray-900/50 p-6 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/50 min-h-[300px] text-center">
              {hifzWords.map((wordObj, i) => (
                 <span key={i} className={`inline-block mx-1 font-quran text-2xl md:text-3xl leading-loose transition-all duration-300 ${
-                  wordObj.match 
-                    ? 'text-emerald-600 dark:text-emerald-400 opacity-100 drop-shadow-sm' 
-                    : wordObj.isHint 
-                      ? 'text-red-500 dark:text-red-400 opacity-100'
-                      : 'hidden'
+                  wordObj.match || wordObj.isHint
+                    ? wordObj.isHint
+                      ? 'text-amber-500 dark:text-amber-300 opacity-100'
+                      : 'text-emerald-600 dark:text-emerald-400 opacity-100'
+                    : wordObj.isWrong
+                      ? 'text-red-500 dark:text-red-400 opacity-100 animate-pulse'
+                      : 'opacity-0 select-none pointer-events-none'
                 }`}>
-                   {wordObj.original}
+                   {(wordObj.match || wordObj.isHint || wordObj.isWrong) ? wordObj.original : '█'}
                 </span>
              ))}
           </div>
+          
+          {/* رسالة الوقوف على كلمة خاطئة */}
+          {hifzWrongWord && hifzExpectedWordIndex < hifzWords.length && (
+             <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/30 rounded-xl border border-red-200 dark:border-red-700 text-center">
+               <p className="text-red-700 dark:text-red-300 font-bold mb-3">⚠️ توقفت عند هذه الكلمة، قلها مرة أخرى</p>
+               <div className="flex justify-center gap-3">
+                 <button onClick={() => {
+                   setHifzWrongWord(false);
+                   setHifzWords(prev => { const n = [...prev]; if(hifzIdxRef.current < n.length) n[hifzIdxRef.current].isWrong = false; return n; });
+                   startHifzListening();
+                 }} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-bold transition">
+                   🎙️ حاول مجدداً
+                 </button>
+                 <button onClick={showHifzHint} className="px-5 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-full font-bold transition border border-amber-300">
+                   💡 تلميح
+                 </button>
+               </div>
+             </div>
+          )}
           
           {hifzExpectedWordIndex >= hifzWords.length && hifzWords.length > 0 && (
              <div className="mt-8 text-center">
@@ -639,77 +672,116 @@ export default function Home() {
       .trim();
   };
 
-  const stopHifzListening = () => {
-    isIntentionalStopRef.current = true;
+  const stopHifzListening = (intentional = true) => {
+    if (intentional) isIntentionalStopRef.current = true;
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(e) {}
     }
-    setIsHifzListening(false);
+    if (intentional) setIsHifzListening(false);
   };
 
   const startHifzListening = () => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("عذراً، متصفحك لا يدعم التعرف على الصوت. جرب متصفح Google Chrome.");
+      alert('عذراً، متصفحك لا يدعم التعرف على الصوت. جرب متصفح Google Chrome.');
       return;
     }
 
-    if (!recognitionRef.current) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'ar-SA';
-      
-      recognition.onstart = () => setIsHifzListening(true);
-      recognition.onend = () => {
-        if (!isIntentionalStopRef.current) {
-           try { recognition.start(); } catch(e) {}
-        } else {
-           setIsHifzListening(false);
-        }
-      };
-      recognition.onerror = (e: any) => {
-        console.error("Speech Rec Error:", e);
-      };
-      
-      recognition.onresult = (event: any) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          currentTranscript += event.results[i][0].transcript + ' ';
-        }
-        
-        const spokenNormalized = normalizeArabicText(currentTranscript);
-        const spokenWords = spokenNormalized.split(' ').filter(w => w.length > 0);
-        
-        setHifzExpectedWordIndex(prevIdx => {
-          let nextIdx = prevIdx;
-          setHifzWords(prevWords => {
-            const newWords = [...prevWords];
-            let matchedInThisChunk = false;
-            
-            for (const spokenWord of spokenWords) {
-              if (nextIdx < newWords.length) {
-                if (spokenWord === newWords[nextIdx].normalized) {
-                  newWords[nextIdx].match = true;
-                  nextIdx++;
-                  matchedInThisChunk = true;
-                }
-              }
-            }
-            return matchedInThisChunk ? newWords : prevWords;
-          });
-          return nextIdx;
-        });
-      };
-      recognitionRef.current = recognition;
+    // إيقاف صوت القرآن إن كان يعمل
+    const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
+    if (audioEl && !audioEl.paused) audioEl.pause();
+
+    // إعادة إنشاء الكائن في كل مرة لضمان النظافة
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch(e) {}
     }
-    
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false; // نسمع جملة واحدة ثم نقرر
+    recognition.interimResults = false;
+    recognition.lang = 'ar-SA';
+    recognition.maxAlternatives = 3;
+
+    recognition.onstart = () => {
+      setIsHifzListening(true);
+      setHifzWrongWord(false);
+    };
+
+    recognition.onend = () => {
+      setIsHifzListening(false);
+    };
+
+    recognition.onerror = (e: any) => {
+      console.error('Speech Rec Error:', e);
+      setIsHifzListening(false);
+    };
+
+    recognition.onresult = (event: any) => {
+      // نجمع كل البدائل في جملة واحدة
+      const allTranscripts: string[] = [];
+      for (let i = 0; i < event.results.length; i++) {
+        for (let j = 0; j < event.results[i].length; j++) {
+          allTranscripts.push(event.results[i][j].transcript);
+        }
+      }
+
+      const currentWords = hifzWordsRef.current;
+      const currentIdx = hifzIdxRef.current;
+
+      if (currentIdx >= currentWords.length) return;
+
+      const expectedNorm = currentWords[currentIdx].normalized;
+
+      // نشوف لو أي بديل فيه الكلمة الصح
+      let matched = false;
+      for (const transcript of allTranscripts) {
+        const spokenWords = normalizeArabicText(transcript).split(' ').filter(w => w.length > 0);
+        for (const spokenWord of spokenWords) {
+          if (spokenWord === expectedNorm) {
+            matched = true;
+            break;
+          }
+        }
+        if (matched) break;
+      }
+
+      if (matched) {
+        // الكلمة صح! لونها أخضر وتقدم
+        setHifzWords(prev => {
+          const newWords = [...prev];
+          newWords[currentIdx].match = true;
+          newWords[currentIdx].isWrong = false;
+          newWords[currentIdx].isHint = false;
+          hifzWordsRef.current = newWords;
+          return newWords;
+        });
+        const nextIdx = currentIdx + 1;
+        hifzIdxRef.current = nextIdx;
+        setHifzExpectedWordIndex(nextIdx);
+        setHifzWrongWord(false);
+        // استمر التسميع تلقائياً إن لم ننتهِ
+        if (nextIdx < currentWords.length) {
+          setTimeout(() => startHifzListening(), 200);
+        }
+      } else {
+        // الكلمة غلط! لونها أحمر وأوقف
+        setHifzWords(prev => {
+          const newWords = [...prev];
+          newWords[currentIdx].isWrong = true;
+          hifzWordsRef.current = newWords;
+          return newWords;
+        });
+        setHifzWrongWord(true);
+      }
+    };
+
+    recognitionRef.current = recognition;
     isIntentionalStopRef.current = false;
     try {
-      recognitionRef.current.start();
+      recognition.start();
     } catch (e) {
-      console.log("Already started");
+      console.log('Already started');
     }
   };
 
@@ -755,7 +827,10 @@ export default function Home() {
       }
       
       setHifzWords(wordsArray);
+      hifzWordsRef.current = wordsArray;
       setHifzExpectedWordIndex(0);
+      hifzIdxRef.current = 0;
+      setHifzWrongWord(false);
       setHifzCurrentPage(pageNumber);
       setHifzSessionActive(true);
       setIsLoadingPage(false);
@@ -1222,7 +1297,8 @@ export default function Home() {
     return (
       <main className={`min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-6 ${theme === 'dark' ? 'dark' : ''} ${theme === 'sepia' ? 'theme-sepia' : ''}`}  dir="rtl">
         <div className="max-w-4xl w-full mx-auto text-center">
-          <h1 className="text-6xl md:text-8xl font-bold text-emerald-700 dark:text-emerald-400 mb-3 leading-tight">﷽</h1>
+          <h1 className="text-5xl md:text-7xl font-bold text-emerald-700 dark:text-emerald-400 mb-2 leading-tight font-quran">تَفَيُّؤ</h1>
+          <p className="text-base md:text-lg text-emerald-600/70 dark:text-emerald-500/70 mb-1 font-quran">﷽</p>
           <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 mb-4">تطبيقك الإسلامي الشامل</p>
           <button onClick={cycleTheme} className="mb-10 inline-flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-300 px-5 py-2.5 rounded-full text-sm font-bold shadow-sm border border-gray-200 dark:border-gray-700 transition hover:shadow-md">
             {theme === 'dark' ? '🌙 الوضع الداكن' : theme === 'sepia' ? '📜 الوضع الكلاسيكي' : '☀️ الوضع الفاتح'}
