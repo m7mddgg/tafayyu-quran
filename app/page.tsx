@@ -1451,7 +1451,7 @@ export default function Home() {
             {theme === 'dark' ? '🌙 الوضع الداكن' : theme === 'sepia' ? '📜 الوضع الكلاسيكي' : '☀️ الوضع الفاتح'}
           </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* كارت القرآن الكريم */}
             <button
               onClick={() => setActiveSection('quran')}
@@ -1503,13 +1503,25 @@ export default function Home() {
             {/* كارت السيرة النبوية */}
             <button
               onClick={() => setActiveSection('seerah')}
-              className="group bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer lg:col-span-2 xl:col-span-1"
+              className="group bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
             >
               <div className="bg-rose-100 dark:bg-rose-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <span className="text-4xl text-rose-600 dark:text-rose-400">🕌</span>
                 </div>
               <h2 className="text-xl font-bold text-rose-700 dark:text-rose-400 mb-2">السيرة النبوية</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm">حياة ومسيرة النبي ﷺ</p>
+            </button>
+
+            {/* كارت مواقيت الصلاة */}
+            <button
+              onClick={fetchPrayerTimes}
+              className="group bg-white dark:bg-gray-800 border-2 border-teal-200 dark:border-teal-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer"
+            >
+              <div className="bg-teal-100 dark:bg-teal-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-teal-600 dark:text-teal-400">🕋</span>
+                </div>
+              <h2 className="text-xl font-bold text-teal-700 dark:text-teal-400 mb-2">مواقيت الصلاة</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">مواقيت دقيقة حسب موقعك</p>
             </button>
           </div>
 
