@@ -103,6 +103,7 @@ export default function Home() {
   const [hifzExpectedWordIndex, setHifzExpectedWordIndex] = useState<number>(0);
   const [isHifzListening, setIsHifzListening] = useState<boolean>(false);
   const [hifzWrongWord, setHifzWrongWord] = useState<boolean>(false);
+  const [isBlindMode, setIsBlindMode] = useState<boolean>(true);
   const [hifzCompletedSurahs, setHifzCompletedSurahs] = useState<number[]>([]);
   const [hifzNextSurah, setHifzNextSurah] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -327,6 +328,13 @@ export default function Home() {
                   <span className="text-xl">{isHifzListening ? '⏹️' : '🎙️'}</span>
                   {isHifzListening ? 'إيقاف التسميع' : 'ابدأ التسميع'}
                </button>
+               <button 
+                  onClick={() => setIsBlindMode(!isBlindMode)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all shadow-md ${isBlindMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+               >
+                  <span className="text-xl">{isBlindMode ? '🙈' : '👁️'}</span>
+                  {isBlindMode ? 'الوضع الأعمى مفعل' : 'الوضع العادي'}
+               </button>
             </div>
           )}
 
@@ -360,9 +368,11 @@ export default function Home() {
                             ? 'text-amber-500 dark:text-amber-300'
                             : wordObj.isWrong
                               ? 'text-red-500 dark:text-red-400 animate-pulse'
-                              : 'opacity-0 select-none pointer-events-none'
+                              : isBlindMode 
+                                ? 'text-transparent bg-gray-200 dark:bg-gray-700 rounded-lg select-none'
+                                : 'text-gray-900 dark:text-gray-100'
                       }`}>
-                        {(wordObj.match || wordObj.isHint || wordObj.isWrong) ? wordObj.original : '█'}
+                        {wordObj.original}
                       </span>
                     ))}
                   </div>
