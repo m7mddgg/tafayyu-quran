@@ -1434,14 +1434,14 @@ export default function Home() {
             </div>
 
             {/* شريط الصوت */}
-            {(playingAudioSurah || isInteractiveMode) && (
+            {(activeAudioSurah || isInteractiveMode) && (
               <div className="bg-amber-50 dark:bg-amber-900/20 p-3 md:p-4 rounded-t-3xl border-b border-amber-200 dark:border-amber-700/50 transition-all duration-500 max-h-40 overflow-hidden">
                 <div className="flex flex-col md:flex-row items-center gap-3">
                   
                   {!isInteractiveMode ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">صوت السورة:</span>
+                        <span className="text-sm font-bold text-amber-700 dark:text-amber-400 whitespace-nowrap">🎧 القارئ:</span>
                         <select
                           value={selectedReciter.id}
                           onChange={(e) => handleReciterChange(e.target.value)}
@@ -1456,7 +1456,7 @@ export default function Home() {
                         <audio
                           id="main-quran-audio"
                           controls
-                          key={`${selectedReciter.id}-${playingAudioSurah}`}
+                          key={`${selectedReciter.id}-${activeAudioSurah}`}
                           preload="auto"
                           className="w-full"
                           onPlay={(e) => {
@@ -1466,15 +1466,15 @@ export default function Home() {
                             }
                           }}
                           onEnded={() => {
-                            if (playingAudioSurah && playingAudioSurah < 114) {
-                              setPlayingAudioSurah(playingAudioSurah + 1);
+                            if (activeAudioSurah && activeAudioSurah < 114) {
+                              setPlayingAudioSurah(activeAudioSurah + 1);
                               setTimeout(() => {
                                 const audioEl = document.getElementById('main-quran-audio') as HTMLAudioElement;
                                 if (audioEl) audioEl.play();
                               }, 100);
                             }
                           }}
-                          src={`${selectedReciter.url}/${String(playingAudioSurah).padStart(3, '0')}.mp3`}
+                          src={`${selectedReciter.url}/${String(activeAudioSurah).padStart(3, '0')}.mp3`}
                         >
                           متصفحك لا يدعم تشغيل الصوت.
                         </audio>
