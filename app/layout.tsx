@@ -27,7 +27,8 @@ export const metadata: Metadata = {
   description: "تطبيق إسلامي شامل للقرآن الكريم والأذكار والفتاوى",
   manifest: "/manifest.json",
   icons: {
-    apple: "/icon-192.png",
+    icon: "/icon.png",
+    apple: "/icon.png",
   },
 };
 
