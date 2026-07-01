@@ -11,6 +11,32 @@ const normalizeArabicText = (text: string) => {
     .replace(/ي/g, 'ى'); // توحيد الياء والألف المقصورة
 };
 
+// Levenshtein distance for fuzzy matching
+const levenshtein = (a: string, b: string): number => {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[][] = Array.from({length: m + 1}, (_, i) =>
+    Array.from({length: n + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+};
+
+// مطابقة الكلمات مع سماح بخطأ حرف واحد للكلمات ذات 3 حروف أو أكثر
+const wordsMatch = (spoken: string, expected: string): boolean => {
+  if (spoken === expected) return true;
+  if (spoken.length >= 3 && expected.length >= 2) {
+    return levenshtein(spoken, expected) <= 1;
+  }
+  return false;
+};
+
 const RECITERS = [
   { id: 'yasser', name: 'ياسر الدوسري', url: 'https://server11.mp3quran.net/yasser' },
   { id: 'mishary', name: 'مشاري العفاسي', url: 'https://server8.mp3quran.net/afs' },
@@ -793,12 +819,12 @@ export default function Home() {
           const words = normalizeArabicText(event.results[i][j].transcript)
             .split(' ').filter((w: string) => w.length > 0);
 
-          // نعد كم كلمة متتالية تطابق من الموضع الحالي
+          // نعد كم كلمة متتالية تطابق (بمطابقة مرنة) من الموضع الحالي
           let count = 0;
           for (const w of words) {
             const idx = currentIdx + count;
             if (idx >= currentWords.length) break;
-            if (w === currentWords[idx].normalized) count++;
+            if (wordsMatch(w, currentWords[idx].normalized)) count++;
             else break;
           }
 
@@ -813,7 +839,7 @@ export default function Home() {
         for (const spokenWord of bestWords) {
           if (currentIdx >= currentWords.length) break;
 
-          if (spokenWord === currentWords[currentIdx].normalized) {
+          if (wordsMatch(spokenWord, currentWords[currentIdx].normalized)) {
             // صح! أخضر وتقدم
             const idx = currentIdx;
             setHifzWords(prev => {
@@ -830,7 +856,6 @@ export default function Home() {
             hifzIdxRef.current = nextIdx;
             setHifzExpectedWordIndex(nextIdx);
 
-            // تحقق إتمام سورة
             const prevSurahNum = currentWords[idx].surah?.number;
             const isPageDone = nextIdx >= currentWords.length;
             const surahChanged = !isPageDone && currentWords[nextIdx].surah?.number !== prevSurahNum;
