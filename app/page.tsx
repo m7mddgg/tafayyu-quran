@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import { seerahData } from './data/seerah';
 
 const normalizeArabicText = (text: string) => {
   if (!text) return '';
@@ -1497,6 +1498,18 @@ export default function Home() {
                 </div>
               <h2 className="text-xl font-bold text-sky-700 dark:text-sky-400 mb-2">الفتاوى</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm">أحكام دينية ومسائل يومية</p>
+            </button>
+            
+            {/* كارت السيرة النبوية */}
+            <button
+              onClick={() => setActiveSection('seerah')}
+              className="group bg-white dark:bg-gray-800 border-2 border-rose-200 dark:border-rose-800 rounded-2xl p-8 shadow-lg hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 text-center cursor-pointer lg:col-span-2 xl:col-span-1"
+            >
+              <div className="bg-rose-100 dark:bg-rose-900/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-4xl text-rose-600 dark:text-rose-400">🕌</span>
+                </div>
+              <h2 className="text-xl font-bold text-rose-700 dark:text-rose-400 mb-2">السيرة النبوية</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">حياة ومسيرة النبي ﷺ</p>
             </button>
           </div>
 
